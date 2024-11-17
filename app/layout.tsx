@@ -1,31 +1,22 @@
-import '@/app/globals.css';
+// app/layout.tsx
+import { Providers } from '@/providers/providers'
+import { Inter } from 'next/font/google'
+import '@/styles/globals.css'
 
-import { AuthProvider } from '@/lib/auth';
-import { ThemeProvider } from '@/components/theme-provider';
-import { type ReactNode } from 'react';
+const inter = Inter({ subsets: ['latin'] })
 
-interface RootLayoutProps {
-	children: ReactNode;
-}
-
-export default function RootLayout({ children }: RootLayoutProps) {
-	return (
-		<>
-			<html lang='en' suppressHydrationWarning>
-				<head />
-				<body>
-					<AuthProvider>
-						<ThemeProvider
-							attribute='class'
-							defaultTheme='system'
-							enableSystem
-							disableTransitionOnChange
-						>
-							{children}
-						</ThemeProvider>
-					</AuthProvider>
-				</body>
-			</html>
-		</>
-	);
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <Providers>
+          {children}
+        </Providers>
+      </body>
+    </html>
+  )
 }

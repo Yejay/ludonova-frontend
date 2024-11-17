@@ -1,13 +1,22 @@
-import api from './client';
-import type { LoginResponse, User } from './types';
+// lib/api/auth.ts
+import { api } from './client'
+import type { AuthResponse, LoginCredentials } from '@/types/auth'
 
-export const auth = {
-  login: async (username: string, password: string): Promise<LoginResponse> => {
-    const response = await api.post<LoginResponse>('/auth/login', { username, password });
-    return response.data;
+export const authApi = {
+  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
+    const response = await api.post<AuthResponse>('/auth/login', credentials)
+    return response.data
   },
-  validate: async (): Promise<User> => {
-    const response = await api.get<User>('/auth/validate');
-    return response.data;
+
+  getSteamAuthUrl: async (): Promise<{ url: string }> => {
+    const response = await api.get<{ url: string }>('/auth/steam/login')
+    return response.data
   },
-};
+
+  handleSteamCallback: async (params: URLSearchParams): Promise<AuthResponse> => {
+    const response = await api.get<AuthResponse>('/auth/steam/return', {
+      params: Object.fromEntries(params)
+    })
+    return response.data
+  }
+}
