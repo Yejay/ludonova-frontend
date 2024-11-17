@@ -1,4 +1,5 @@
 // lib/api/auth.ts
+import axios from 'axios';
 import { api } from './client'
 import type { AuthResponse, LoginCredentials } from '@/types/auth'
 
