@@ -14,9 +14,25 @@ export const authApi = {
   },
 
   handleSteamCallback: async (params: URLSearchParams): Promise<AuthResponse> => {
-    const response = await api.get<AuthResponse>('/auth/steam/return', {
-      params: Object.fromEntries(params)
-    })
-    return response.data
+    try {
+      console.log('Steam callback params:', Object.fromEntries(params))
+      const response = await api.get<AuthResponse>('/auth/steam/return', {
+        params: Object.fromEntries(params)
+      })
+      console.log('Steam auth response:', response.data)
+      return response.data
+    } catch (error) {
+      // Better error logging
+      if (axios.isAxiosError(error)) {
+        console.error('Steam API error:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        })
+      } else {
+        console.error('Steam callback error:', error)
+      }
+      throw error
+    }
   }
 }

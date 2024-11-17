@@ -18,16 +18,20 @@ export function LoginForm() {
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setIsLoading(true)
-
+  
     try {
       const formData = new FormData(event.currentTarget)
       const response = await authApi.login({
         username: formData.get('username') as string,
         password: formData.get('password') as string,
       })
-      
+  
       login(response.user, response.tokens)
-      router.push('/dashboard')
+  
+      // Get redirect URL from query params or default to dashboard
+      const params = new URLSearchParams(window.location.search)
+      const redirectTo = params.get('redirect') || '/dashboard'
+      router.replace(redirectTo)
     } catch (error) {
       toast({
         title: 'Error',
