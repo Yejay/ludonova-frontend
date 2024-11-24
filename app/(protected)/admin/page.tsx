@@ -27,6 +27,16 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -41,10 +51,12 @@ function UserForm({
 	user,
 	onSubmit,
 	mode,
+	isSubmitting,
 }: {
 	user?: User;
 	onSubmit: (data: CreateUserData | UpdateUserData) => void;
 	mode: 'create' | 'edit';
+	isSubmitting: boolean;
 }) {
 	const [formData, setFormData] = useState<CreateUserData | UpdateUserData>(
 		user || {
@@ -124,16 +136,95 @@ function UserForm({
 				</Select>
 			</div>
 
-			<Button type='submit'>
-				{mode === 'create' ? 'Create User' : 'Update User'}
+			<Button type='submit' disabled={isSubmitting}>
+				{isSubmitting ? (
+					<div className='flex items-center gap-2'>
+						<div className='h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent' />
+						{mode === 'create' ? 'Creating...' : 'Updating...'}
+					</div>
+				) : mode === 'create' ? (
+					'Create User'
+				) : (
+					'Update User'
+				)}
 			</Button>
 		</form>
+	);
+}
+
+// DeleteConfirmDialog component
+function DeleteConfirmDialog({
+	isOpen,
+	onClose,
+	onConfirm,
+	username,
+}: {
+	isOpen: boolean;
+	onClose: () => void;
+	onConfirm: () => void;
+	username: string;
+}) {
+	return (
+		<AlertDialog open={isOpen} onOpenChange={onClose}>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>Delete User</AlertDialogTitle>
+					<AlertDialogDescription>
+						Are you sure you want to delete {username}? This action cannot be
+						undone.
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Cancel</AlertDialogCancel>
+					<AlertDialogAction
+						onClick={onConfirm}
+						className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+					>
+						Delete
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
 	);
 }
 
 function AdminPage() {
 	const queryClient = useQueryClient();
 	const [editingUser, setEditingUser] = useState<User | null>(null);
+	const [userToDelete, setUserToDelete] = useState<User | null>(null);
+
+	// TODO: Add search functionality
+	// const [searchQuery, setSearchQuery] = useState('');
+	// const filteredUsers = data?.filter(user =>
+	//   user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+	//   user.email?.toLowerCase().includes(searchQuery.toLowerCase())
+	// );
+
+	// TODO: Add sorting
+	// const [sortField, setSortField] = useState<keyof User>('id');
+	// const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+	// const sortedUsers = [...(data || [])].sort((a, b) => {
+	//   if (sortDirection === 'asc') {
+	//     return a[sortField] > b[sortField] ? 1 : -1;
+	//   }
+	//   return a[sortField] < b[sortField] ? 1 : -1;
+	// });
+
+	// TODO: Add pagination
+	// const [page, setPage] = useState(1);
+	// const itemsPerPage = 10;
+	// const totalPages = Math.ceil((data?.length || 0) / itemsPerPage);
+	// const paginatedUsers = data?.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+
+	// TODO: Add filtering
+	// const [roleFilter, setRoleFilter] = useState<'ALL' | 'USER' | 'ADMIN'>('ALL');
+	// const [steamLinkedFilter, setSteamLinkedFilter] = useState<'ALL' | 'LINKED' | 'NOT_LINKED'>('ALL');
+	// const filteredUsers = data?.filter(user => {
+	//   if (roleFilter !== 'ALL' && user.role !== roleFilter) return false;
+	//   if (steamLinkedFilter === 'LINKED' && !user.steamUser) return false;
+	//   if (steamLinkedFilter === 'NOT_LINKED' && user.steamUser) return false;
+	//   return true;
+	// });
 
 	const { data, isLoading, error } = useQuery<User[]>({
 		queryKey: ['users'],
@@ -141,10 +232,7 @@ function AdminPage() {
 	});
 
 	const createUserMutation = useMutation({
-		mutationFn: (userData: CreateUserData) => {
-			console.log('Creating user with data:', userData);
-			return createUser(userData);
-		},
+		mutationFn: (userData: CreateUserData) => createUser(userData),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['users'] });
 			toast.success('User created successfully');
@@ -156,10 +244,8 @@ function AdminPage() {
 	});
 
 	const updateUserMutation = useMutation({
-		mutationFn: ({ id, ...userData }: UpdateUserData & { id: number }) => {
-			console.log('Updating user with id:', id, 'and data:', userData);
-			return updateUser(id, userData);
-		},
+		mutationFn: ({ id, ...userData }: UpdateUserData & { id: number }) =>
+			updateUser(id, userData),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['users'] });
 			toast.success('User updated successfully');
@@ -176,6 +262,7 @@ function AdminPage() {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['users'] });
 			toast.success('User deleted successfully');
+			setUserToDelete(null);
 		},
 		onError: (error) => {
 			toast.error('Failed to delete user');
@@ -217,6 +304,7 @@ function AdminPage() {
 							onSubmit={(data) =>
 								createUserMutation.mutate(data as CreateUserData)
 							}
+							isSubmitting={createUserMutation.isPending}
 						/>
 					</DialogContent>
 				</Dialog>
@@ -288,6 +376,7 @@ function AdminPage() {
 														...(data as UpdateUserData),
 													})
 												}
+												isSubmitting={updateUserMutation.isPending}
 											/>
 										</DialogContent>
 									</Dialog>
@@ -295,15 +384,7 @@ function AdminPage() {
 									<Button
 										variant='destructive'
 										size='sm'
-										onClick={() => {
-											if (
-												window.confirm(
-													'Are you sure you want to delete this user?'
-												)
-											) {
-												deleteUserMutation.mutate(user.id);
-											}
-										}}
+										onClick={() => setUserToDelete(user)}
 										disabled={deleteUserMutation.isPending}
 									>
 										Delete
@@ -314,6 +395,17 @@ function AdminPage() {
 					))}
 				</TableBody>
 			</Table>
+
+			<DeleteConfirmDialog
+				isOpen={!!userToDelete}
+				onClose={() => setUserToDelete(null)}
+				onConfirm={() => {
+					if (userToDelete) {
+						deleteUserMutation.mutate(userToDelete.id);
+					}
+				}}
+				username={userToDelete?.username || ''}
+			/>
 		</div>
 	);
 }
