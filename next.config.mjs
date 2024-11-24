@@ -12,6 +12,11 @@ const nextConfig = {
 				hostname: 'media.rawg.io',
 				pathname: '/media/**',
 			},
+			{
+				protocol: 'https',
+				hostname: 'avatars.steamstatic.com',
+				pathname: '/**',
+			},
 		],
 	},
 };

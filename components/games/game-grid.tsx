@@ -5,6 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import { GameCard } from '@/components/games/GameCard';
 import { fetchGames } from '@/lib/api/games';
 import { GameGridSkeleton } from '@/components/games/GameGridSkeleton';
+import { Input } from "@/components/ui/input";
+import { useDebounce } from '@/hooks/use-debounce';
 import {
 	Pagination,
 	PaginationContent,
@@ -18,6 +20,8 @@ import type { PageResponse } from '@/types/game';
 
 function GameGrid() {
 	const [page, setPage] = useState(1);
+	const [search, setSearch] = useState('');
+	const debouncedSearch = useDebounce(search, 500); // Debounce search input
 
 	const generatePagination = (
 		currentPage: number,
@@ -55,12 +59,22 @@ function GameGrid() {
 	};
 
 	const { data, isError, error, isLoading } = useQuery<PageResponse, Error>({
-		queryKey: ['games', page],
-		queryFn: () => fetchGames({ page: page - 1, limit: 20 }),
+		queryKey: ['games', page, debouncedSearch],
+		queryFn: () => fetchGames({ 
+			page: page - 1, 
+			limit: 20,
+			search: debouncedSearch 
+		}),
 		retry: 1,
 		staleTime: 30000,
 		refetchOnWindowFocus: false,
 	});
+
+	// Reset page when search changes
+	const handleSearch = (value: string) => {
+		setSearch(value);
+		setPage(1);
+	};
 
 	if (isLoading) {
 		return <GameGridSkeleton />;
@@ -75,11 +89,34 @@ function GameGrid() {
 	}
 
 	if (!data?.content || data.content.length === 0) {
-		return <div className='text-center text-yellow-500'>No games found</div>;
+		return (
+			<div className='space-y-4'>
+				<div className='w-full max-w-sm mx-auto'>
+					<Input
+						type="search"
+						placeholder="Search games..."
+						value={search}
+						onChange={(e) => handleSearch(e.target.value)}
+						className="w-full"
+					/>
+				</div>
+				<div className='text-center text-yellow-500'>No games found</div>
+			</div>
+		);
 	}
 
 	return (
 		<div className='space-y-8'>
+			<div className='w-full max-w-sm mx-auto'>
+				<Input
+					type="search"
+					placeholder="Search games..."
+					value={search}
+					onChange={(e) => handleSearch(e.target.value)}
+					className="w-full"
+				/>
+			</div>
+
 			<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6'>
 				{data.content.map((game) => (
 					<GameCard key={game.id} game={game} />
