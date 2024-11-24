@@ -1,66 +1,74 @@
 // lib/api/client.ts
 import axios from 'axios'
 import type { AuthTokens } from '@/types/auth'
+import { cookies } from '@/utils/cookies'
 
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api',
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
   withCredentials: true
 })
 
-// Add a request interceptor to add the auth token
+// Add a request interceptor
 api.interceptors.request.use((config) => {
   // Don't add auth headers for Steam auth endpoints
   if (config.url?.includes('/auth/steam')) {
     return config;
   }
 
-  const tokens = localStorage.getItem('auth-tokens')
-  if (tokens) {
-    const { accessToken } = JSON.parse(tokens) as AuthTokens
-    config.headers.Authorization = `Bearer ${accessToken}`
+  const tokens = cookies.getTokens();
+  if (tokens?.accessToken) {
+    config.headers.Authorization = `Bearer ${tokens.accessToken}`;
   }
-  return config
-})
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
 
-// Add a response interceptor to handle token refresh
+// Add a response interceptor
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config
-    
+    const originalRequest = error.config;
+
     // Don't attempt refresh for Steam auth endpoints
     if (originalRequest.url?.includes('/auth/steam')) {
-      return Promise.reject(error)
+      return Promise.reject(error);
     }
 
-    // If the error is 401 and we haven't tried to refresh the token yet
+    // If error is 401 and we haven't retried yet
     if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true
+      originalRequest._retry = true;
+
       try {
-        const tokens = localStorage.getItem('auth-tokens')
-        if (!tokens) {
-          throw new Error('No refresh token available')
-        }
-        const { refreshToken } = JSON.parse(tokens) as AuthTokens
-        const response = await api.post<AuthTokens>('/auth/refresh', { refreshToken })
+        const tokens = cookies.getTokens();
+        if (!tokens) throw new Error('No refresh token available');
         
-        // Save the new tokens
-        localStorage.setItem('auth-tokens', JSON.stringify(response.data))
+        // Try to refresh the token
+        const response = await api.post<AuthTokens>('/auth/refresh', {
+          refreshToken: tokens.refreshToken
+        });
+
+        // Save new tokens
+        cookies.setTokens(response.data);
+
+        // Update the original request with new token
+        originalRequest.headers.Authorization = `Bearer ${response.data.accessToken}`;
         
-        // Update the original request with the new token
-        originalRequest.headers.Authorization = `Bearer ${response.data.accessToken}`
-        return api(originalRequest)
+        // Retry the original request
+        return api(originalRequest);
       } catch (refreshError) {
-        // Handle refresh token failure (e.g., redirect to login)
-        window.location.href = '/auth/login'
-        return Promise.reject(refreshError)
+        // Clear auth and redirect to login
+        cookies.clearAuth();
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
       }
     }
-    return Promise.reject(error)
+
+    return Promise.reject(error);
   }
-)
+);
 
 export default api

@@ -10,11 +10,13 @@ interface AuthContextType {
   login: (user: User, tokens: AuthTokens) => void
   logout: () => void
   isAuthenticated: boolean
+  isLoading: boolean
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<User | null>(() => cookies.getUser())
   const [tokens, setTokens] = useState<AuthTokens | null>(() => cookies.getTokens())
 
@@ -27,6 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(savedUser)
       setTokens(savedTokens)
     }
+    setIsLoading(false)
   }, [])
 
   const login = useCallback((user: User, tokens: AuthTokens) => {
@@ -49,8 +52,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       logout,
       isAuthenticated: !!user && !!tokens,
+      isLoading,
     }),
-    [user, tokens, login, logout]
+    [user, tokens, login, logout, isLoading]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -7,6 +7,11 @@ const nextConfig = {
 				hostname: 'steamcommunity.com',
 				pathname: '/public/images/signinthroughsteam/**',
 			},
+			{
+				protocol: 'https',
+				hostname: 'media.rawg.io',
+				pathname: '/media/**',
+			},
 		],
 	},
 };

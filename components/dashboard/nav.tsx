@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   ShieldAlert,
   Wrench,
+  Gamepad,
   PanelRightClose,
   PanelRightOpen,
 } from 'lucide-react'
@@ -19,6 +20,11 @@ const navigation = [
     name: 'Dashboard',
     href: '/dashboard',
     icon: LayoutDashboard,
+  },
+  {
+    name: 'Games',
+    href: '/games',
+    icon: Gamepad,
   },
   {
     name: 'Admin',

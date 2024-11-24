@@ -3,7 +3,7 @@
 
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { DashboardNav } from '@/components/dashboard/nav';
 import { DashboardHeader } from '@/components/dashboard/header';
@@ -15,21 +15,6 @@ export default function ProtectedLayout({
 }) {
 	const { isAuthenticated, isLoading } = useAuth();
 	const router = useRouter();
-
-	// const [isCollapsed, setIsCollapsed] = useState(() => {
-	// 	if (typeof window !== 'undefined') {
-	// 		const saved = localStorage.getItem('sidebarCollapsed')
-	// 		return saved === 'true'
-	// 	}
-	// 	return false
-	// })
-
-	// const toggleCollapsed = () => {
-	// 	setIsCollapsed(prev => {
-	// 		localStorage.setItem('sidebarCollapsed', (!prev).toString())
-	// 		return !prev
-	// 	})
-	// }
 
 	useEffect(() => {
 		if (!isLoading && !isAuthenticated) {
@@ -45,16 +30,19 @@ export default function ProtectedLayout({
 		);
 	}
 
+	if (!isAuthenticated) {
+		return null;
+	}
+
 	return (
-    <div className="min-h-screen bg-background">
-      <DashboardHeader />
-      
-      <div className="flex">
-        <DashboardNav />
-        <main className="flex-1 p-8 transition-all duration-300">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+		<div className="min-h-screen bg-background">
+			<DashboardHeader />
+			<div className="flex">
+				<DashboardNav />
+				<main className="flex-1 p-8 transition-all duration-300">
+					{children}
+				</main>
+			</div>
+		</div>
+	);
 }
