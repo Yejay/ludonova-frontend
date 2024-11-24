@@ -1,33 +1,32 @@
 // app/(protected)/dashboard/page.tsx
-'use client'
+'use client';
 
-import { useAuth } from '@/hooks/use-auth'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { LogOut } from 'lucide-react'
+import { GamesList } from '@/components/dashboard/games-list';
+import { DashboardStats } from '@/components/dashboard/stats';
 
 export default function DashboardPage() {
-  const { user, logout } = useAuth()
+	return (
+		<div className='min-h-screen bg-background'>
+			{/* <DashboardHeader /> */}
 
-  return (
-    <div className="container mx-auto p-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Dashboard</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h2 className="font-semibold">User Info:</h2>
-            <pre className="bg-muted p-4 rounded-lg mt-2">
-              {JSON.stringify(user, null, 2)}
-            </pre>
-          </div>
-          <Button onClick={logout} variant="destructive">
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  )
+			<div className='flex'>
+				{/* Main Content */}
+				<main className='flex-1 p-8'>
+					<div className='max-w-7xl mx-auto space-y-6'>
+						{/* Stats Section */}
+						<section className='grid gap-4'>
+							<h2 className='text-xl font-semibold'>Overview</h2>
+							<DashboardStats />
+						</section>
+
+						{/* Games List Section */}
+						<section className='grid gap-4'>
+							<h2 className='text-xl font-semibold'>Your Games</h2>
+							<GamesList />
+						</section>
+					</div>
+				</main>
+			</div>
+		</div>
+	);
 }

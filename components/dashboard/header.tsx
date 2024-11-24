@@ -20,9 +20,9 @@ export function DashboardHeader() {
   const { user, logout } = useAuth()
 
   return (
-    <header className="border-b">
+    <header className="border-b border-border bg-background">
       <div className="flex h-16 items-center px-4">
-        <Link href="/" className="flex items-center space-x-2">
+        <Link href="/" className="flex items-center space-x-2 text-foreground">
           <Gamepad className="h-6 w-6" />
           <span className="font-bold">LudoNova</span>
         </Link>

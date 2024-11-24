@@ -30,19 +30,19 @@ export function GamesList() {
   ]
 
   return (
-    <Card>
+    <Card className="bg-card">
       <CardHeader>
-        <CardTitle>Recent Games</CardTitle>
+        <CardTitle className="text-card-foreground">Recent Games</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {games.map((game) => (
             <div
               key={game.id}
-              className="flex items-center justify-between p-4 border rounded-lg"
+              className="flex items-center justify-between p-4 border border-border rounded-lg bg-background"
             >
               <div className="space-y-1">
-                <p className="font-medium">{game.title}</p>
+                <p className="font-medium text-foreground">{game.title}</p>
                 <div className="flex items-center space-x-2">
                   <Badge variant="secondary">{game.platform}</Badge>
                   <Badge>{game.status}</Badge>
