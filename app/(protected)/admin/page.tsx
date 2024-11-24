@@ -1,8 +1,13 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchUsers, deleteUser } from '@/lib/api/users';
-import type { User } from '@/types/user';
+import {
+	fetchUsers,
+	deleteUser,
+	updateUser,
+	createUser,
+} from '@/lib/api/users';
+import type { User, CreateUserData, UpdateUserData } from '@/types/user';
 import {
 	Table,
 	TableBody,
@@ -14,18 +19,155 @@ import {
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import Image from 'next/image';
+import { useState } from 'react';
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
+
+function UserForm({
+	user,
+	onSubmit,
+	mode,
+}: {
+	user?: User;
+	onSubmit: (data: CreateUserData | UpdateUserData) => void;
+	mode: 'create' | 'edit';
+}) {
+	const [formData, setFormData] = useState<CreateUserData | UpdateUserData>(
+		user || {
+			username: '',
+			email: '',
+			role: 'USER',
+			password: mode === 'create' ? '' : undefined,
+		}
+	);
+
+	return (
+		<form
+			onSubmit={(e) => {
+				e.preventDefault();
+				onSubmit(formData);
+			}}
+			className='space-y-4'
+		>
+			<div>
+				<Label htmlFor='username'>Username</Label>
+				<Input
+					id='username'
+					value={formData.username || ''}
+					onChange={(e) =>
+						setFormData((prev) => ({ ...prev, username: e.target.value }))
+					}
+					required={mode === 'create'}
+				/>
+			</div>
+
+			<div>
+				<Label htmlFor='email'>Email</Label>
+				<Input
+					id='email'
+					type='email'
+					value={formData.email || ''}
+					onChange={(e) =>
+						setFormData((prev) => ({ ...prev, email: e.target.value }))
+					}
+					required={mode === 'create'}
+				/>
+			</div>
+
+			{mode === 'create' && (
+				<div>
+					<Label htmlFor='password'>Password</Label>
+					<Input
+						id='password'
+						type='password'
+						value={(formData as CreateUserData).password || ''}
+						onChange={(e) =>
+							setFormData((prev) => ({ ...prev, password: e.target.value }))
+						}
+						required
+					/>
+				</div>
+			)}
+
+			<div>
+				<Label htmlFor='role'>Role</Label>
+				<Select
+					value={formData.role}
+					onValueChange={(value) =>
+						setFormData((prev) => ({
+							...prev,
+							role: value as 'USER' | 'ADMIN',
+						}))
+					}
+				>
+					<SelectTrigger>
+						<SelectValue placeholder='Select role' />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value='USER'>User</SelectItem>
+						<SelectItem value='ADMIN'>Admin</SelectItem>
+					</SelectContent>
+				</Select>
+			</div>
+
+			<Button type='submit'>
+				{mode === 'create' ? 'Create User' : 'Update User'}
+			</Button>
+		</form>
+	);
+}
 
 function AdminPage() {
 	const queryClient = useQueryClient();
+	const [editingUser, setEditingUser] = useState<User | null>(null);
 
-	// Add console.log to check the API response
 	const { data, isLoading, error } = useQuery<User[]>({
 		queryKey: ['users'],
-		queryFn: async () => {
-			const response = await fetchUsers();
-			console.log('API Response:', response); // Debug log
-			// If the response is wrapped in a data property, extract it
-			return response.content || response;
+		queryFn: fetchUsers,
+	});
+
+	const createUserMutation = useMutation({
+		mutationFn: (userData: CreateUserData) => {
+			console.log('Creating user with data:', userData);
+			return createUser(userData);
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['users'] });
+			toast.success('User created successfully');
+		},
+		onError: (error) => {
+			toast.error('Failed to create user');
+			console.error('Create error:', error);
+		},
+	});
+
+	const updateUserMutation = useMutation({
+		mutationFn: ({ id, ...userData }: UpdateUserData & { id: number }) => {
+			console.log('Updating user with id:', id, 'and data:', userData);
+			return updateUser(id, userData);
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['users'] });
+			toast.success('User updated successfully');
+			setEditingUser(null);
+		},
+		onError: (error) => {
+			toast.error('Failed to update user');
+			console.error('Update error:', error);
 		},
 	});
 
@@ -60,7 +202,25 @@ function AdminPage() {
 
 	return (
 		<div className='container mx-auto p-4 space-y-4'>
-			<h1 className='text-2xl font-bold'>Admin Dashboard</h1>
+			<div className='flex justify-between items-center'>
+				<h1 className='text-2xl font-bold'>Admin Dashboard</h1>
+				<Dialog>
+					<DialogTrigger asChild>
+						<Button>Create New User</Button>
+					</DialogTrigger>
+					<DialogContent>
+						<DialogHeader>
+							<DialogTitle>Create New User</DialogTitle>
+						</DialogHeader>
+						<UserForm
+							mode='create'
+							onSubmit={(data) =>
+								createUserMutation.mutate(data as CreateUserData)
+							}
+						/>
+					</DialogContent>
+				</Dialog>
+			</div>
 
 			<Table>
 				<TableHeader>
@@ -104,22 +264,51 @@ function AdminPage() {
 							</TableCell>
 							<TableCell>{user.role}</TableCell>
 							<TableCell>
-								<Button
-									variant='destructive'
-									size='sm'
-									onClick={() => {
-										if (
-											window.confirm(
-												'Are you sure you want to delete this user?'
-											)
-										) {
-											deleteUserMutation.mutate(user.id);
-										}
-									}}
-									disabled={deleteUserMutation.isPending}
-								>
-									Delete
-								</Button>
+								<div className='flex gap-2'>
+									<Dialog>
+										<DialogTrigger asChild>
+											<Button
+												variant='outline'
+												size='sm'
+												onClick={() => setEditingUser(user)}
+											>
+												Edit
+											</Button>
+										</DialogTrigger>
+										<DialogContent>
+											<DialogHeader>
+												<DialogTitle>Edit User</DialogTitle>
+											</DialogHeader>
+											<UserForm
+												mode='edit'
+												user={user}
+												onSubmit={(data) =>
+													updateUserMutation.mutate({
+														id: user.id,
+														...(data as UpdateUserData),
+													})
+												}
+											/>
+										</DialogContent>
+									</Dialog>
+
+									<Button
+										variant='destructive'
+										size='sm'
+										onClick={() => {
+											if (
+												window.confirm(
+													'Are you sure you want to delete this user?'
+												)
+											) {
+												deleteUserMutation.mutate(user.id);
+											}
+										}}
+										disabled={deleteUserMutation.isPending}
+									>
+										Delete
+									</Button>
+								</div>
 							</TableCell>
 						</TableRow>
 					))}
