@@ -1,15 +1,22 @@
 // lib/api/client.ts
 import axios from 'axios'
+import https from 'https'
 import type { AuthTokens } from '@/types/auth'
 import { cookies } from '@/utils/cookies'
+
+// Create custom HTTPS agent for development
+const httpsAgent = process.env.NODE_ENV === 'development' 
+  ? new https.Agent({ rejectUnauthorized: false })
+  : undefined;
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true
-})
+  withCredentials: true,
+  httpsAgent // This will bypass SSL verification in development
+});
 
 // Add a request interceptor
 api.interceptors.request.use((config) => {
