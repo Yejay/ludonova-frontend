@@ -1,57 +1,82 @@
 // components/dashboard/stats.tsx
 'use client'
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { Gamepad, Trophy, Clock, Star } from 'lucide-react'
+import { Gamepad, Trophy, Clock, X, BookmarkIcon } from 'lucide-react';
 
-export function DashboardStats() {
-  return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-      <Card className="bg-card">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-card-foreground">Total Games</CardTitle>
-          <Gamepad className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-card-foreground">42</div>
-          <p className="text-xs text-muted-foreground">Across all platforms</p>
-        </CardContent>
-      </Card>
-      <Card className="bg-card">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-card-foreground">Completed</CardTitle>
-          <Trophy className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-card-foreground">18</div>
-          <p className="text-xs text-muted-foreground">+2 this month</p>
-        </CardContent>
-      </Card>
-      <Card className="bg-card">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-card-foreground">Play Time</CardTitle>
-          <Clock className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-card-foreground">247h</div>
-          <p className="text-xs text-muted-foreground">+12h from last week</p>
-        </CardContent>
-      </Card>
-      <Card className="bg-card">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-card-foreground">Avg Rating</CardTitle>
-          <Star className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-card-foreground">4.2</div>
-          <p className="text-xs text-muted-foreground">Based on your reviews</p>
-        </CardContent>
-      </Card>
-    </div>
-  )
+interface Stats {
+	totalGames: number;
+	playing: number;
+	completed: number;
+	plan_to_play: number;
+	dropped: number;
+}
+
+interface DashboardStatsProps {
+	stats: Stats | null;
+	isLoading: boolean;
+}
+
+export function DashboardStats({ stats, isLoading }: DashboardStatsProps) {
+	if (isLoading) {
+		return (
+			<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
+				{Array.from({ length: 4 }).map((_, i) => (
+					<div key={i} className='bg-card p-6 rounded-lg shadow-sm animate-pulse'>
+						<div className='h-8 w-8 rounded-full bg-muted mb-4' />
+						<div className='h-6 w-24 bg-muted rounded mb-2' />
+						<div className='h-4 w-16 bg-muted rounded' />
+					</div>
+				))}
+			</div>
+		);
+	}
+
+	if (!stats) return null;
+
+	const statCards = [
+		{
+			label: 'Total Games',
+			value: stats.totalGames,
+			icon: Gamepad,
+			color: 'text-blue-500',
+		},
+		{
+			label: 'Playing',
+			value: stats.playing,
+			icon: Clock,
+			color: 'text-green-500',
+		},
+		{
+			label: 'Completed',
+			value: stats.completed,
+			icon: Trophy,
+			color: 'text-yellow-500',
+		},
+		{
+			label: 'Plan to Play',
+			value: stats.plan_to_play,
+			icon: BookmarkIcon,
+			color: 'text-orange-500',
+		},
+		{
+			label: 'Dropped',
+			value: stats.dropped,
+			icon: X,
+			color: 'text-red-500',
+		},
+	];
+
+	return (
+		<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+			{statCards.map((stat) => (
+				<div key={stat.label} className='bg-card p-6 rounded-lg shadow-sm'>
+					<div className={`${stat.color} mb-4`}>
+						<stat.icon className='w-8 h-8' />
+					</div>
+					<h3 className='text-lg font-semibold'>{stat.label}</h3>
+					<p className='text-3xl font-bold'>{stat.value}</p>
+				</div>
+			))}
+		</div>
+	);
 }
