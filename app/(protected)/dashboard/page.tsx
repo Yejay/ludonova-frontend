@@ -1,32 +1,30 @@
 // app/(protected)/dashboard/page.tsx
 'use client';
 
-import { GamesList } from '@/components/dashboard/games-list';
-import { DashboardStats } from '@/components/dashboard/stats';
+import { Suspense } from 'react';
+import { GameLibrary } from './components/GameLibrary';
+import { UserProfile } from './components/UserProfile';
+import { LibraryStats } from './components/LibraryStats';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
 	return (
-		<div className='min-h-screen bg-background'>
-			{/* <DashboardHeader /> */}
-
-			<div className='flex'>
-				{/* Main Content */}
-				<main className='flex-1 p-8'>
-					<div className='max-w-7xl mx-auto space-y-6'>
-						{/* Stats Section */}
-						<section className='grid gap-4'>
-							<h2 className='text-xl font-semibold'>Overview</h2>
-							<DashboardStats />
-						</section>
-
-						{/* Games List Section */}
-						<section className='grid gap-4'>
-							<h2 className='text-xl font-semibold'>Your Games</h2>
-							<GamesList />
-						</section>
-					</div>
-				</main>
-			</div>
+		<div className='container py-6 space-y-8'>
+			<Suspense fallback={<Skeleton className='h-32 w-full' />}>
+				<UserProfile />
+			</Suspense>
+			
+			<Suspense fallback={<Skeleton className='h-24 w-full' />}>
+				<LibraryStats />
+			</Suspense>
+			
+			<Suspense fallback={<div className='grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3'>
+				{Array.from({ length: 6 }).map((_, i) => (
+					<Skeleton key={i} className='aspect-[16/9]' />
+				))}
+			</div>}>
+				<GameLibrary />
+			</Suspense>
 		</div>
 	);
 }
