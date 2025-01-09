@@ -20,16 +20,19 @@ export default function ProfilePage() {
     
     setIsSyncing(true);
     try {
-      await api.post('/game-instances/sync-steam');
+      await api.post('/steam/sync');
       toast({
         title: 'Success',
         description: 'Your Steam library has been synced successfully.',
       });
     } catch (error: unknown) {
       console.error('Failed to sync Steam library:', error instanceof AxiosError ? error.response?.data : error);
+      const errorMessage = error instanceof AxiosError 
+        ? error.response?.data?.message || 'Failed to sync Steam library. Please try again later.'
+        : 'Failed to sync Steam library. Please try again later.';
       toast({
         title: 'Error',
-        description: 'Failed to sync Steam library. Please try again later.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

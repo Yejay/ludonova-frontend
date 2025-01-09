@@ -33,16 +33,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const login = useCallback((user: User, tokens: AuthTokens) => {
+    console.debug('Setting auth state:', { user: user?.username, hasTokens: !!tokens });
     setUser(user)
     setTokens(tokens)
     cookies.setUser(user)
     cookies.setTokens(tokens)
+    
+    // Verify tokens were set correctly
+    const savedTokens = cookies.getTokens()
+    if (!savedTokens) {
+      console.error('Failed to save auth tokens to cookies');
+    }
   }, [])
 
   const logout = useCallback(() => {
+    console.debug('Clearing auth state');
     setUser(null)
     setTokens(null)
     cookies.clearAuth()
+    
+    // Verify tokens were cleared
+    const savedTokens = cookies.getTokens()
+    if (savedTokens) {
+      console.error('Failed to clear auth tokens from cookies');
+    }
   }, [])
 
   const value = useMemo(

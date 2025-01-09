@@ -20,15 +20,29 @@ export const api = axios.create({
 
 // Add a request interceptor
 api.interceptors.request.use((config) => {
-  // Don't add auth headers for Steam auth endpoints
-  if (config.url?.includes('/auth/steam')) {
-    return config;
-  }
-
+  // Get fresh tokens for every request
   const tokens = cookies.getTokens();
+  
+  // Enhanced token debugging
+  console.debug('Auth state:', {
+    hasTokens: !!tokens,
+    accessToken: tokens?.accessToken ? `${tokens.accessToken.substring(0, 10)}...` : null,
+    tokenType: tokens?.accessToken ? typeof tokens.accessToken : null,
+    authHeader: tokens?.accessToken ? `Bearer ${tokens.accessToken.substring(0, 10)}...` : null,
+    url: config.url
+  });
+  
   if (tokens?.accessToken) {
-    config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+    // Ensure the token is a string and properly formatted
+    const token = String(tokens.accessToken).trim();
+    if (!token.includes('.')) {
+      console.error('Invalid token format - missing periods');
+    }
+    config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    console.debug('No auth token found in cookies');
   }
+  
   return config;
 }, (error) => {
   return Promise.reject(error);
