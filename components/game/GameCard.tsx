@@ -12,12 +12,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from '@/components/ui/button';
 import { ChevronDownIcon, PlusIcon } from '@radix-ui/react-icons';
+import { cn } from '@/lib/utils';
 
 interface BaseGameCardProps {
   gameId: number;
   title: string;
   backgroundImage: string;
   genres: string[];
+  className?: string;
 }
 
 interface LibraryGameCardProps extends BaseGameCardProps {
@@ -40,7 +42,7 @@ interface BrowseGameCardProps extends BaseGameCardProps {
 type GameCardProps = LibraryGameCardProps | BrowseGameCardProps;
 
 export function GameCard(props: GameCardProps) {
-  const { gameId, title, backgroundImage, genres } = props;
+  const { gameId, title, backgroundImage, genres, className } = props;
 
   const formatPlayTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
@@ -49,7 +51,10 @@ export function GameCard(props: GameCardProps) {
   };
 
   return (
-    <Card className="overflow-hidden group hover:border-primary/50 transition-colors">
+    <Card className={cn(
+      "overflow-hidden group cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all duration-300",
+      className
+    )}>
       <Link href={`/games/${gameId}`}>
         <div className="relative aspect-[16/9]">
           <Image
