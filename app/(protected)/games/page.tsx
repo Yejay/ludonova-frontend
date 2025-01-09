@@ -83,14 +83,45 @@ export default function GamesPage() {
 		queryFn: async () => {
 			const response = await api.get<PageResponse<Game>>('/games', {
 				params: {
-					search: debouncedSearch || undefined,
+					query: debouncedSearch || undefined,
 					page: page - 1,
 					size: PAGE_SIZE
 				}
 			});
 			return response.data;
-		}
+		},
+		staleTime: 0,
 	});
+
+	// Reset page when search changes
+	useEffect(() => {
+		setPage(1);
+	}, [debouncedSearch]);
+
+	// Prefetch next page
+	useEffect(() => {
+		if (response?.totalPages && page < response.totalPages) {
+			queryClient.prefetchQuery({
+				queryKey: [GAMES_KEY, { search: debouncedSearch, page: page + 1 }],
+				queryFn: async () => {
+					const response = await api.get<PageResponse<Game>>('/games', {
+						params: {
+							query: debouncedSearch || undefined,
+							page: page,
+							size: PAGE_SIZE
+						}
+					});
+					return response.data;
+				},
+			});
+		}
+	}, [page, debouncedSearch, response?.totalPages, queryClient]);
+
+	const handleSearch = (value: string) => {
+		setSearch(value);
+		// Invalidate current query to force a refresh
+		queryClient.invalidateQueries({ queryKey: [GAMES_KEY] });
+	};
 
 	const handleAddToLibrary = async (gameId: number, status: GameStatus) => {
 		try {
@@ -106,11 +137,6 @@ export default function GamesPage() {
 		}
 	};
 
-	// Reset page when search changes
-	useEffect(() => {
-		setPage(1);
-	}, [debouncedSearch]);
-
 	return (
 		<div className="flex-1 flex flex-col items-center py-8 space-y-8">
 			{/* Search Section */}
@@ -123,7 +149,7 @@ export default function GamesPage() {
 						type="search"
 						placeholder="Search games..."
 						value={search}
-						onChange={(e) => setSearch(e.target.value)}
+						onChange={(e) => handleSearch(e.target.value)}
 						className="w-full"
 					/>
 				</div>
