@@ -8,6 +8,7 @@ import { api } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { getStatusDisplayName } from '@/utils/game-status';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/hooks/use-auth';
 
 const GAME_INSTANCES_KEY = 'game-instances';
 const LIBRARY_STATS_KEY = 'library-stats';
@@ -15,6 +16,7 @@ const LIBRARY_STATS_KEY = 'library-stats';
 export function GameLibrary() {
   const [selectedStatus, setSelectedStatus] = useState<GameStatus | null>(null);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: response, isLoading } = useQuery({
     queryKey: [GAME_INSTANCES_KEY],
@@ -58,9 +60,9 @@ export function GameLibrary() {
             ))}
           </div>
         </div>
-        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {[...Array(8)].map((_, i) => (
-            <Skeleton key={i} className="aspect-[16/9]" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+          {[...Array(10)].map((_, i) => (
+            <Skeleton key={i} className="aspect-[3/4] rounded-lg" />
           ))}
         </div>
       </div>
@@ -69,8 +71,10 @@ export function GameLibrary() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold tracking-tight">Your Library</h2>
+      <div className="flex flex-col items-center space-y-6">
+        <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">
+          {user?.steamUser?.personaName || user?.username}&apos;s Library
+        </h1>
         <div className="flex gap-2 overflow-x-auto pb-2">
           <Button
             variant={selectedStatus === null ? "default" : "outline"}
@@ -100,7 +104,7 @@ export function GameLibrary() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
           {filteredGames.map((game) => (
             <GameCard
               key={game.id}
