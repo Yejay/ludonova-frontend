@@ -4,10 +4,14 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
 import { GameStatus } from '@/types/game';
 import { getStatusColor, getStatusDisplayName } from '@/utils/game-status';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-
-const LIBRARY_STATS_KEY = 'library-stats';
+import { Card, CardContent } from '@/components/ui/card';
+import { 
+  ClockIcon, 
+  PlayIcon,
+  CheckCircledIcon,
+  CrossCircledIcon,
+  StackIcon
+} from '@radix-ui/react-icons';
 
 interface LibraryStatsResponse {
   totalGames: number;
@@ -15,74 +19,50 @@ interface LibraryStatsResponse {
   totalPlayTime: number;
 }
 
+const statusIcons = {
+  [GameStatus.PLAN_TO_PLAY]: ClockIcon,
+  [GameStatus.PLAYING]: PlayIcon,
+  [GameStatus.COMPLETED]: CheckCircledIcon,
+  [GameStatus.DROPPED]: CrossCircledIcon,
+};
+
 export function LibraryStats() {
-  const { data: stats, isLoading } = useQuery({
-    queryKey: [LIBRARY_STATS_KEY],
+  const { data: stats } = useQuery({
+    queryKey: ['library-stats'],
     queryFn: async () => {
       const response = await api.get<LibraryStatsResponse>('/game-instances/stats');
       return response.data;
     }
   });
 
-  const formatPlayTime = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    if (hours < 1) return `${minutes}m`;
-    return `${hours}h ${minutes % 60}m`;
-  };
-
-  if (isLoading) {
-    return (
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-5">
-        {[...Array(5)].map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="py-4">
-              <Skeleton className="h-4 w-24" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-12" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  }
-
-  if (!stats) return null;
+  const counts = stats?.statusCounts || {};
+  const total = stats?.totalGames || 0;
 
   return (
-    <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+      {Object.values(GameStatus).map((status) => {
+        const Icon = statusIcons[status];
+        return (
+          <Card key={status}>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Icon className="h-4 w-4" />
+                <span>{getStatusDisplayName(status)}</span>
+              </div>
+              <p className={`text-2xl font-bold ${getStatusColor(status)}`}>
+                {counts[status] || 0}
+              </p>
+            </CardContent>
+          </Card>
+        );
+      })}
       <Card>
-        <CardHeader className="py-4">
-          <CardTitle className="text-sm font-medium">Total Games</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.totalGames}</div>
-        </CardContent>
-      </Card>
-
-      {Object.values(GameStatus).map((status) => (
-        <Card key={status}>
-          <CardHeader className="py-4">
-            <CardTitle className="text-sm font-medium">
-              {getStatusDisplayName(status)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${getStatusColor(status)}`}>
-              {stats.statusCounts[status] || 0}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-
-      <Card>
-        <CardHeader className="py-4">
-          <CardTitle className="text-sm font-medium">Total Play Time</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {formatPlayTime(stats.totalPlayTime)}
+        <CardContent className="pt-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <StackIcon className="h-4 w-4" />
+            <span>Total Games</span>
           </div>
+          <p className="text-2xl font-bold">{total}</p>
         </CardContent>
       </Card>
     </div>

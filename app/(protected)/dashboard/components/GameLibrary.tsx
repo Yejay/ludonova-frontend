@@ -33,9 +33,7 @@ export function GameLibrary() {
 
   const handleStatusChange = async (gameId: number, newStatus: GameStatus) => {
     try {
-      await api.patch(`/game-instances/${gameId}/status`, {
-        status: newStatus
-      });
+      await api.patch(`/game-instances/${gameId}/status?status=${newStatus}`);
       // Invalidate both queries to refresh the data
       await queryClient.invalidateQueries({ queryKey: [GAME_INSTANCES_KEY] });
       await queryClient.invalidateQueries({ queryKey: [LIBRARY_STATS_KEY] });
