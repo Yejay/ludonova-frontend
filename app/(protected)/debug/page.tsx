@@ -1,32 +1,196 @@
-// app/(protected)/dashboard/page.tsx
 'use client'
 
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { api } from '@/lib/api/client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { AxiosError } from 'axios'
+
+interface SteamGame {
+  name: string
+  appid: number
+  playtime_forever: number
+  rtime_last_played: number | null
+}
 
 export default function DebugPage() {
   const { user } = useAuth()
   const [syncResult, setSyncResult] = useState<string>('')
   const [isSyncing, setIsSyncing] = useState(false)
+  const [gameCount, setGameCount] = useState<number | null>(null)
+  const [isRefreshingCount, setIsRefreshingCount] = useState(false)
+
+  const fetchGameCount = async () => {
+    setIsRefreshingCount(true)
+    try {
+      const response = await api.get('/games/count')
+      setGameCount(response.data)
+    } catch (error) {
+      console.error('Failed to fetch game count:', error)
+    } finally {
+      setIsRefreshingCount(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchGameCount()
+  }, [])
 
   const testSteamSync = async () => {
     setIsSyncing(true)
     setSyncResult('Starting Steam sync...\n')
     try {
       const startTime = Date.now()
-      await api.post('/steam/sync')
+      
+      // Step 1: Get Steam library
+      setSyncResult(prev => prev + 'Fetching Steam library...\n')
+      const libraryResponse = await api.get('/steam/library')
+      const games: SteamGame[] = libraryResponse.data.response.games
+      setSyncResult(prev => prev + `Found ${games.length} games in Steam library\n\n`)
+
+      // Step 2: Prepare game titles for bulk search
+      setSyncResult(prev => prev + 'Searching for existing games...\n')
+      const gameTitles = games.map(game => game.name)
+      const existingGames = new Map<string, any>()
+      const newGames: SteamGame[] = []
+      const failedGames: string[] = []
+
+      // Search for games in batches of 20
+      const BATCH_SIZE = 20
+      for (let i = 0; i < gameTitles.length; i += BATCH_SIZE) {
+        const batch = gameTitles.slice(i, i + BATCH_SIZE)
+        for (const title of batch) {
+          try {
+            const searchResponse = await api.get('/games', {
+              params: {
+                query: title,
+                page: 0,
+                size: 1
+              }
+            })
+
+            if (searchResponse.data.content.length > 0) {
+              existingGames.set(title, searchResponse.data.content[0])
+              setSyncResult(prev => prev + `Found existing game: ${title}\n`)
+            } else {
+              const steamGame = games.find(g => g.name === title)
+              if (steamGame) {
+                newGames.push(steamGame)
+                setSyncResult(prev => prev + `Will create new game: ${title}\n`)
+              }
+            }
+          } catch (error) {
+            failedGames.push(title)
+            setSyncResult(prev => prev + `Failed to search for game ${title}: ${error}\n`)
+          }
+        }
+      }
+
+      setSyncResult(prev => prev + `\nFound ${existingGames.size} existing games\n`)
+      setSyncResult(prev => prev + `Will create ${newGames.length} new games\n`)
+      if (failedGames.length > 0) {
+        setSyncResult(prev => prev + `Failed to process ${failedGames.length} games\n\n`)
+      }
+
+      // Step 3: Create new games in batches
+      if (newGames.length > 0) {
+        setSyncResult(prev => prev + 'Creating new games...\n')
+        for (const game of newGames) {
+          try {
+            const gameResponse = await api.post('/games', {
+              title: game.name,
+              apiId: game.appid.toString(),
+              source: 'STEAM',
+              platform: 'PC',
+              slug: game.name.toLowerCase()
+                .replace(/[^a-z0-9\s-]/g, '')
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-')
+                .trim(),
+              backgroundImage: `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/header.jpg`,
+              genres: ['Steam Game']
+            }).catch(error => {
+              if (error.response?.status === 500) {
+                setSyncResult(prev => prev + `Failed to create game ${game.name}: ${error.response?.data?.message || error.message}\n`);
+                return null;
+              }
+              throw error;
+            });
+
+            if (!gameResponse) {
+              failedGames.push(game.name);
+              continue;
+            }
+
+            existingGames.set(game.name, gameResponse.data);
+            setSyncResult(prev => prev + `Created game: ${game.name}\n`);
+          } catch (error) {
+            failedGames.push(game.name)
+            setSyncResult(prev => prev + `Failed to create game ${game.name}: ${error}\n`)
+          }
+        }
+      }
+
+      // Step 4: Create game instances
+      const gameInstances = []
+      for (const game of games) {
+        const existingGame = existingGames.get(game.name)
+        if (existingGame) {
+          gameInstances.push({
+            gameId: existingGame.id,
+            status: 'PLAYING',
+            playTime: game.playtime_forever,
+            lastPlayed: game.rtime_last_played ? new Date(game.rtime_last_played * 1000) : null
+          })
+        }
+      }
+
+      // Step 5: Send batch request
+      if (gameInstances.length > 0) {
+        setSyncResult(prev => prev + `\nCreating ${gameInstances.length} game instances...\n`)
+        const batchSize = 50 // Process in smaller batches to avoid timeouts
+        for (let i = 0; i < gameInstances.length; i += batchSize) {
+          const batch = gameInstances.slice(i, i + batchSize)
+          try {
+            const response = await api.post('/game-instances/batch', {
+              gameInstances: batch
+            })
+            setSyncResult(prev => 
+              prev + `Successfully created batch of ${response.data.length} game instances\n`)
+          } catch (error) {
+            if (error instanceof AxiosError) {
+              const errorDetails = error.response?.data
+              setSyncResult(prev => prev + [
+                `Error creating batch ${i / batchSize + 1}:`,
+                `Status: ${error.response?.status}`,
+                `Message: ${errorDetails?.message || error.message}`,
+                errorDetails?.trace ? `Stack trace: ${errorDetails.trace}` : '',
+                `Full response: ${JSON.stringify(errorDetails, null, 2)}`
+              ].filter(Boolean).join('\n') + '\n')
+            } else {
+              setSyncResult(prev => prev + `Unknown error in batch ${i / batchSize + 1}: ${error}\n`)
+            }
+          }
+        }
+      }
+      
       const duration = (Date.now() - startTime) / 1000
-      setSyncResult(prev => prev + `Steam sync completed in ${duration} seconds\n`)
+      setSyncResult(prev => prev + `\nSteam sync completed in ${duration} seconds\n`)
+      setSyncResult(prev => prev + [
+        `Total games processed: ${games.length}`,
+        `Existing games found: ${existingGames.size}`,
+        `New games created: ${newGames.length}`,
+        `Failed games: ${failedGames.length}`,
+        `Game instances created: ${gameInstances.length}`
+      ].join('\n') + '\n')
+
     } catch (error) {
       if (error instanceof AxiosError) {
         const errorDetails = error.response?.data
         setSyncResult(prev => prev + [
-          'Error syncing Steam library:',
+          'Error during sync:',
           `Status: ${error.response?.status}`,
           `Message: ${errorDetails?.message || error.message}`,
           errorDetails?.trace ? `Stack trace: ${errorDetails.trace}` : '',
@@ -46,6 +210,39 @@ export default function DebugPage() {
       <h1 className="text-4xl font-bold">Debug Page</h1>
 
       <div className="grid gap-8 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Database Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex items-center gap-4">
+                <div>
+                  <h3 className="font-medium">Games in Database</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {gameCount !== null ? gameCount : 'Loading...'}
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={fetchGameCount}
+                  disabled={isRefreshingCount}
+                >
+                  {isRefreshingCount ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    'Refresh Count'
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>User Information</CardTitle>
@@ -79,101 +276,17 @@ export default function DebugPage() {
               <h3 className="font-medium">Steam Library Test</h3>
               <div className="space-y-2">
                 <Button
-                  onClick={async () => {
-                    try {
-                      setSyncResult('Fetching Steam library...\n')
-                      const response = await api.get('/steam/library')
-                      setSyncResult(prev => prev + `Successfully fetched Steam library:\n${JSON.stringify(response.data, null, 2)}\n`)
-                    } catch (error) {
-                      if (error instanceof AxiosError) {
-                        const errorDetails = error.response?.data
-                        setSyncResult(prev => prev + [
-                          'Error fetching Steam library:',
-                          `Status: ${error.response?.status}`,
-                          `Message: ${errorDetails?.message || error.message}`,
-                          errorDetails?.trace ? `Stack trace: ${errorDetails.trace}` : '',
-                          `Full response: ${JSON.stringify(errorDetails, null, 2)}`
-                        ].filter(Boolean).join('\n') + '\n')
-                      } else {
-                        setSyncResult(prev => prev + `Unknown error: ${error}\n`)
-                      }
-                      console.error('Steam library fetch error:', error)
-                    }
-                  }}
+                  onClick={testSteamSync}
                   disabled={!user?.steamUser || isSyncing}
                 >
-                  Fetch Steam Library
-                </Button>
-
-                <Button
-                  onClick={async () => {
-                    try {
-                      setSyncResult('Starting Steam sync...\n')
-                      const libraryResponse = await api.get('/steam/library')
-                      const games = libraryResponse.data.response.games
-                      
-                      setSyncResult(prev => prev + `Found ${games.length} games in Steam library\n`)
-                      
-                      for (const game of games.slice(0, 100)) { // Import first 5 games for testing
-                        setSyncResult(prev => prev + `\nImporting game: ${game.name}...\n`)
-                        try {
-                          // First search for the game in RAWG
-                          const rawgResponse = await api.get('/games', {
-                            params: {
-                              query: game.name,
-                              page: 0,
-                              size: 1
-                            }
-                          })
-
-                          let gameId;
-                          if (rawgResponse.data.content.length > 0) {
-                            // Use existing game from our database
-                            gameId = rawgResponse.data.content[0].id;
-                          } else {
-                            // Create new game with Steam data
-                            const gameResponse = await api.post('/games', {
-                              title: game.name,
-                              apiId: game.appid.toString(),
-                              source: 'STEAM',
-                              backgroundImage: `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/header.jpg`
-                            })
-                            gameId = gameResponse.data.id;
-                          }
-                          
-                          // Add game to user's library
-                          const response = await api.post('/game-instances', {
-                            gameId: gameId,
-                            status: 'PLAYING',
-                            playTime: game.playtime_forever,
-                            lastPlayed: game.rtime_last_played ? new Date(game.rtime_last_played * 1000) : null
-                          })
-                          setSyncResult(prev => prev + `Successfully imported ${game.name}\n`)
-                        } catch (error) {
-                          setSyncResult(prev => prev + `Failed to import ${game.name}: ${error}\n`)
-                        }
-                      }
-                      
-                      setSyncResult(prev => prev + '\nFinished importing games\n')
-                    } catch (error) {
-                      if (error instanceof AxiosError) {
-                        const errorDetails = error.response?.data
-                        setSyncResult(prev => prev + [
-                          'Error during import:',
-                          `Status: ${error.response?.status}`,
-                          `Message: ${errorDetails?.message || error.message}`,
-                          errorDetails?.trace ? `Stack trace: ${errorDetails.trace}` : '',
-                          `Full response: ${JSON.stringify(errorDetails, null, 2)}`
-                        ].filter(Boolean).join('\n') + '\n')
-                      } else {
-                        setSyncResult(prev => prev + `Unknown error: ${error}\n`)
-                      }
-                      console.error('Steam import error:', error)
-                    }
-                  }}
-                  disabled={!user?.steamUser || isSyncing}
-                >
-                  Import First 5 Games
+                  {isSyncing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Syncing...
+                    </>
+                  ) : (
+                    'Sync Steam Library'
+                  )}
                 </Button>
               </div>
               {syncResult && (

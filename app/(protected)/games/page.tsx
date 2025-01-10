@@ -40,6 +40,18 @@ interface Game {
 	genres: string[];
 }
 
+interface GameInstance {
+	id: number;
+	status: GameStatus;
+	lastPlayed: string | null;
+	playTime: number;
+	progressPercentage: number;
+}
+
+type GameInstances = {
+	[key: number]: GameInstance | null;
+};
+
 function generatePaginationRange(currentPage: number, totalPages: number) {
 	const delta = 2;
 	const range = [];
@@ -75,12 +87,22 @@ export default function GamesPage() {
 	const [search, setSearch] = useState('');
 	const [page, setPage] = useState(1);
 	const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
-	const debouncedSearch = useDebounce(search, 300);
+	const debouncedSearch = useDebounce(search, 500);
 	const queryClient = useQueryClient();
 
 	const { data: response, isLoading } = useQuery({
 		queryKey: [GAMES_KEY, { search: debouncedSearch, page }],
 		queryFn: async () => {
+			if (debouncedSearch && debouncedSearch.length < 3) {
+				return {
+					content: [],
+					totalPages: 0,
+					totalElements: 0,
+					size: PAGE_SIZE,
+					number: 0,
+				};
+			}
+
 			const response = await api.get<PageResponse<Game>>('/games', {
 				params: {
 					query: debouncedSearch || undefined,
@@ -90,7 +112,29 @@ export default function GamesPage() {
 			});
 			return response.data;
 		},
-		staleTime: 0,
+		staleTime: 1000 * 60 * 5,
+	});
+
+	// Fetch game instances for all games in the current page
+	const { data: gameInstances } = useQuery<GameInstances>({
+		queryKey: [GAME_INSTANCES_KEY, response?.content?.map(game => game.id)],
+		queryFn: async () => {
+			if (!response?.content?.length) return {};
+
+			const instances = await Promise.all(
+				response.content.map(async (game) => {
+					try {
+						const response = await api.get<GameInstance>(`/game-instances/by-game/${game.id}`);
+						return { [game.id]: response.data };
+					} catch (error) {
+						return { [game.id]: null };
+					}
+				})
+			);
+
+			return instances.reduce<GameInstances>((acc, curr) => ({ ...acc, ...curr }), {});
+		},
+		enabled: !!response?.content?.length,
 	});
 
 	// Reset page when search changes
@@ -118,9 +162,13 @@ export default function GamesPage() {
 	}, [page, debouncedSearch, response?.totalPages, queryClient]);
 
 	const handleSearch = (value: string) => {
+		if (value === search) {
+			return;
+		}
 		setSearch(value);
-		// Invalidate current query to force a refresh
-		queryClient.invalidateQueries({ queryKey: [GAMES_KEY] });
+		if (value.trim().length >= 3) {
+			queryClient.invalidateQueries({ queryKey: [GAMES_KEY] });
+		}
 	};
 
 	const handleAddToLibrary = async (gameId: number, status: GameStatus) => {
@@ -134,6 +182,18 @@ export default function GamesPage() {
 			setSelectedGameId(null);
 		} catch (error) {
 			console.error('Failed to add game to library:', error);
+		}
+	};
+
+	const handleStatusChange = async (gameId: number, instanceId: number, status: GameStatus) => {
+		try {
+			await api.patch(`/game-instances/${instanceId}/status`, null, {
+				params: { status }
+			});
+			await queryClient.invalidateQueries({ queryKey: [GAME_INSTANCES_KEY] });
+			await queryClient.invalidateQueries({ queryKey: [LIBRARY_STATS_KEY] });
+		} catch (error) {
+			console.error('Failed to update game status:', error);
 		}
 	};
 
@@ -169,43 +229,63 @@ export default function GamesPage() {
 			) : (
 				<>
 					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 w-full px-4">
-						{response.content.map((game) => (
-							<Dialog key={game.id} open={selectedGameId === game.id} onOpenChange={(open) => !open && setSelectedGameId(null)}>
-								<DialogTrigger asChild>
-									<GameCard
-										variant="browse"
-										gameId={game.id}
-										title={game.title}
-										backgroundImage={game.backgroundImage}
-										genres={game.genres}
-										onAddToLibrary={() => setSelectedGameId(game.id)}
-									/>
-								</DialogTrigger>
-								<DialogContent>
-									<DialogHeader>
-										<DialogTitle>Add {game.title} to Library</DialogTitle>
-									</DialogHeader>
-									<div className="grid grid-cols-2 gap-4 py-4">
-										{Object.values(GameStatus).map((status) => (
-											<Button
-												key={status}
-												variant="outline"
-												className={cn(
-													"h-auto py-4 px-6 hover:bg-primary/10",
-													status === GameStatus.PLAYING && "border-primary/50",
-													status === GameStatus.COMPLETED && "border-green-500/50",
-													status === GameStatus.PLAN_TO_PLAY && "border-blue-500/50",
-													status === GameStatus.DROPPED && "border-red-500/50"
-												)}
-												onClick={() => handleAddToLibrary(game.id, status)}
-											>
-												{getStatusDisplayName(status)}
-											</Button>
-										))}
-									</div>
-								</DialogContent>
-							</Dialog>
-						))}
+						{response.content.map((game) => {
+							const instance = gameInstances?.[game.id];
+							const cardProps = instance ? {
+								variant: 'library' as const,
+								gameId: game.id,
+								title: game.title,
+								backgroundImage: game.backgroundImage,
+								genres: game.genres,
+								instance: {
+									id: instance.id,
+									status: instance.status,
+									lastPlayed: instance.lastPlayed,
+									playTime: instance.playTime,
+									progressPercentage: instance.progressPercentage
+								},
+								onStatusChange: (instanceId: number, status: GameStatus) => handleStatusChange(game.id, instanceId, status)
+							} : {
+								variant: 'browse' as const,
+								gameId: game.id,
+								title: game.title,
+								backgroundImage: game.backgroundImage,
+								genres: game.genres,
+								onAddToLibrary: () => setSelectedGameId(game.id)
+							};
+							return (
+								<Dialog key={game.id} open={selectedGameId === game.id} onOpenChange={(open) => !open && setSelectedGameId(null)}>
+									<DialogTrigger asChild>
+										<GameCard {...cardProps} />
+									</DialogTrigger>
+									{!instance && (
+										<DialogContent>
+											<DialogHeader>
+												<DialogTitle>Add {game.title} to Library</DialogTitle>
+											</DialogHeader>
+											<div className="grid grid-cols-2 gap-4 py-4">
+												{Object.values(GameStatus).map((status) => (
+													<Button
+														key={status}
+														variant="outline"
+														className={cn(
+															"h-auto py-4 px-6 hover:bg-primary/10",
+															status === GameStatus.PLAYING && "border-primary/50",
+															status === GameStatus.COMPLETED && "border-green-500/50",
+															status === GameStatus.PLAN_TO_PLAY && "border-blue-500/50",
+															status === GameStatus.DROPPED && "border-red-500/50"
+														)}
+														onClick={() => handleAddToLibrary(game.id, status)}
+													>
+														{getStatusDisplayName(status)}
+													</Button>
+												))}
+											</div>
+										</DialogContent>
+									)}
+								</Dialog>
+							);
+						})}
 					</div>
 
 					{/* Pagination */}
