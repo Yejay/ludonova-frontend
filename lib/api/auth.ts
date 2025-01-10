@@ -6,6 +6,7 @@ import type { AuthResponse, LoginCredentials } from '@/types/auth'
 export interface RegisterCredentials {
   username: string;
   password: string;
+  email: string;
 }
 
 export const authApi = {
