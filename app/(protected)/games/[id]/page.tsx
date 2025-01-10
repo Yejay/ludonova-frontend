@@ -19,7 +19,7 @@ import {
 import { ChevronDownIcon, StarFilledIcon, StarIcon } from '@radix-ui/react-icons';
 import { AxiosError } from 'axios';
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Clock, Calendar, Gamepad, Building2, Building } from "lucide-react";
+import { AlertCircle, Clock, Calendar, Gamepad } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -32,14 +32,13 @@ interface Game {
   backgroundImage: string;
   genres: string[];
   releaseDate: string;
-  developer: string;
-  publisher: string;
 }
 
 interface Review {
   id: number;
   userId: number;
   username: string;
+  steamPersonaName: string | null;
   reviewText: string;
   rating: number;
   createdAt: string;
@@ -358,22 +357,6 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <Building2 className="h-4 w-4" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Developer</p>
-                    <p className="text-sm">{game.developer}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <Building className="h-4 w-4" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Publisher</p>
-                    <p className="text-sm">{game.publisher}</p>
-                  </div>
-                </div>
-
                 {gameInstance && (
                   <>
                     <div className="flex items-center gap-3 text-muted-foreground">
@@ -472,9 +455,9 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
                     <Card key={review.id}>
                       <CardContent className="pt-6 space-y-3">
                         <div className="flex justify-between items-center">
-                          <span className="font-medium">{review.username}</span>
+                          <span className="font-medium">{review.username.startsWith('steam_') && review.steamPersonaName ? review.steamPersonaName : review.username}</span>
                           <span className="text-sm text-muted-foreground">
-                            {new Date(review.createdAt).toLocaleDateString()}
+                            {new Date(review.createdAt).toLocaleDateString('en-GB')}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
