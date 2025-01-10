@@ -19,8 +19,11 @@ import {
 import { ChevronDownIcon, StarFilledIcon, StarIcon } from '@radix-ui/react-icons';
 import { AxiosError } from 'axios';
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Clock, Calendar, Gamepad, Building2, Building } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 interface Game {
   id: number;
@@ -77,10 +80,8 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
         return response.data;
       } catch (error) {
         if (error instanceof AxiosError && error.response?.status === 404) {
-          // Game is not in library yet - this is normal
           return null;
         }
-        // Only log actual errors
         console.error('Error fetching game instance:', error);
         return null;
       }
@@ -114,30 +115,26 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
       });
       console.log('Successfully added game to library, response:', response.data);
       
-      // Wait for queries to be invalidated before proceeding
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['game-instance', id] }),
         queryClient.invalidateQueries({ queryKey: ['game-reviews', id] }),
-        queryClient.invalidateQueries({ queryKey: ['game-instances'] }) // Invalidate library stats
+        queryClient.invalidateQueries({ queryKey: ['game-instances'] })
       ]);
 
-      // Force refetch the game instance
       await queryClient.fetchQuery({ queryKey: ['game-instance', id] });
     } catch (error) {
       console.error('Failed to add game to library:', error);
       if (error instanceof AxiosError && error.response) {
         console.error('Error response:', error.response.data);
-        throw error; // Re-throw to handle in the UI
+        throw error;
       }
     }
   };
 
-  // Prevent the dropdown from closing when clicking menu items
   const handleDropdownSelect = async (status: GameStatus) => {
     try {
       await handleAddToLibrary(status);
     } catch (error) {
-      // Show error to user
       console.error('Failed to update game status:', error);
     }
   };
@@ -149,10 +146,9 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
       const response = await api.patch(`/game-instances/${gameInstance.id}/status?status=${newStatus}`);
       console.log('Successfully updated game status:', response.data);
       
-      // Wait for queries to be invalidated
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['game-instance', id] }),
-        queryClient.invalidateQueries({ queryKey: ['game-instances'] }) // Invalidate library stats
+        queryClient.invalidateQueries({ queryKey: ['game-instances'] })
       ]);
     } catch (error) {
       console.error('Failed to update game status:', error);
@@ -219,21 +215,49 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
   };
 
   if (isLoadingGame || isLoadingInstance) {
-    return <div>Loading...</div>;
+    return (
+      <div className="container py-6 space-y-6">
+        <div className="relative aspect-[21/9] rounded-lg overflow-hidden">
+          <Skeleton className="h-full w-full" />
+        </div>
+        <div className="grid gap-6 md:grid-cols-[2fr,1fr]">
+          <div className="space-y-8">
+            <Skeleton className="h-8 w-1/3" />
+            <Skeleton className="h-40" />
+          </div>
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-20" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!game) {
-    return <div>Game not found</div>;
+    return (
+      <div className="container py-12 text-center">
+        <h1 className="text-2xl font-bold text-muted-foreground">Game not found</h1>
+      </div>
+    );
   }
 
-  // Check if the current user has already reviewed this game
   const userHasReviewed = reviews.length > 0 && reviews.some(review => 
     review.userId === user?.id
   );
 
+  const formatPlayTime = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    if (hours === 0) return `${minutes} minutes`;
+    return `${hours} hour${hours > 1 ? 's' : ''}${remainingMinutes > 0 ? ` ${remainingMinutes} min` : ''}`;
+  };
+
   return (
-    <div className="container py-6 space-y-6">
-      <div className="relative aspect-[21/9] rounded-lg overflow-hidden">
+    <div className="min-h-screen bg-background">
+      {/* Hero Section */}
+      <div className="relative h-[50vh] min-h-[400px] w-full">
         <Image
           src={game.backgroundImage}
           alt={game.title}
@@ -241,76 +265,148 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
           className="object-cover"
           priority
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
-        <div className="absolute bottom-6 left-6 right-6">
-          <h1 className="text-4xl font-bold mb-4">{game.title}</h1>
-          <div className="flex items-center gap-4">
-            <div className="flex gap-2">
-              {game.genres.map((genre) => (
-                <Badge key={genre} variant="secondary">
-                  {genre}
-                </Badge>
-              ))}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+        
+        {/* Content overlay */}
+        <div className="absolute bottom-0 left-0 right-0">
+          <div className="px-8 py-8">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">
+              {game.title}
+            </h1>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap gap-2">
+                {game.genres.map((genre) => (
+                  <Badge key={genre} variant="secondary" className="backdrop-blur-sm bg-background/50">
+                    {genre}
+                  </Badge>
+                ))}
+              </div>
+              {gameInstance ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      className={cn("backdrop-blur-sm bg-background/50", getStatusColor(gameInstance.status))}
+                    >
+                      {getStatusDisplayName(gameInstance.status)}
+                      <ChevronDownIcon className="ml-2 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {Object.values(GameStatus).map((status) => (
+                      <DropdownMenuItem
+                        key={status}
+                        onClick={() => handleStatusChange(status)}
+                      >
+                        {getStatusDisplayName(status)}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="secondary" className="backdrop-blur-sm bg-background/50">
+                      Add to Library
+                      <ChevronDownIcon className="ml-2 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {Object.values(GameStatus).map((status) => (
+                      <DropdownMenuItem
+                        key={status}
+                        onClick={() => handleDropdownSelect(status)}
+                      >
+                        {getStatusDisplayName(status)}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
-            {gameInstance ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    className={getStatusColor(gameInstance.status)}
-                  >
-                    {getStatusDisplayName(gameInstance.status)}
-                    <ChevronDownIcon className="ml-2 h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  {Object.values(GameStatus).map((status) => (
-                    <DropdownMenuItem
-                      key={status}
-                      onClick={() => handleStatusChange(status)}
-                    >
-                      {getStatusDisplayName(status)}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="secondary">
-                    Add to Library
-                    <ChevronDownIcon className="ml-2 h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  {Object.values(GameStatus).map((status) => (
-                    <DropdownMenuItem
-                      key={status}
-                      onClick={() => handleDropdownSelect(status)}
-                    >
-                      {getStatusDisplayName(status)}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
           </div>
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-[2fr,1fr]">
+      {/* Main Content */}
+      <div className="px-8 py-8">
         <div className="space-y-8">
-          <div className="space-y-4">
-            <h2 className="text-2xl font-semibold">About</h2>
-            <div 
-              className="text-muted-foreground leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: game.description }}
-            />
+          {/* About and Game Details */}
+          <div className="grid gap-8 md:grid-cols-[2fr,1fr]">
+            <Card>
+              <CardHeader>
+                <CardTitle>About</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div 
+                  className="prose prose-zinc dark:prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: game.description }}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Game Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <Calendar className="h-4 w-4" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Release Date</p>
+                    <p className="text-sm">{new Date(game.releaseDate).toLocaleDateString()}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <Building2 className="h-4 w-4" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Developer</p>
+                    <p className="text-sm">{game.developer}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <Building className="h-4 w-4" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Publisher</p>
+                    <p className="text-sm">{game.publisher}</p>
+                  </div>
+                </div>
+
+                {gameInstance && (
+                  <>
+                    <div className="flex items-center gap-3 text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Play Time</p>
+                        <p className="text-sm">{formatPlayTime(gameInstance.playTime)}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-muted-foreground">
+                      <Gamepad className="h-4 w-4" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Last Played</p>
+                        <p className="text-sm">
+                          {gameInstance.lastPlayed
+                            ? new Date(gameInstance.lastPlayed).toLocaleDateString()
+                            : 'Never played'}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
-          <div className="space-y-4">
-            <h2 className="text-2xl font-semibold">Reviews</h2>
-            <div className="space-y-4">
+          {/* Reviews Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Reviews</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
               {!gameInstance ? (
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
@@ -326,103 +422,80 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
                   </AlertDescription>
                 </Alert>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium">Rating</label>
-                    <StarRating />
-                  </div>
-                  <Textarea
-                    placeholder="Write your review..."
-                    value={reviewContent}
-                    onChange={(e) => {
-                      setReviewContent(e.target.value);
-                      setReviewError(null);
-                    }}
-                  />
-                  {reviewError && (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{reviewError}</AlertDescription>
-                    </Alert>
-                  )}
-                  <Button 
-                    onClick={handleSubmitReview}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? 'Submitting...' : 'Submit Review'}
-                  </Button>
-                </div>
+                <Card>
+                  <CardContent className="pt-6 space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Rating</label>
+                      <StarRating />
+                    </div>
+                    <Textarea
+                      placeholder="Write your review..."
+                      value={reviewContent}
+                      onChange={(e) => {
+                        setReviewContent(e.target.value);
+                        setReviewError(null);
+                      }}
+                    />
+                    {reviewError && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>{reviewError}</AlertDescription>
+                      </Alert>
+                    )}
+                    <Button 
+                      onClick={handleSubmitReview}
+                      disabled={isSubmitting}
+                      className="w-full"
+                    >
+                      {isSubmitting ? 'Submitting...' : 'Submit Review'}
+                    </Button>
+                  </CardContent>
+                </Card>
               )}
 
               {isLoadingReviews ? (
-                <div>Loading reviews...</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <Skeleton key={i} className="h-32" />
+                  ))}
+                </div>
               ) : reviewsError ? (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>Failed to load reviews</AlertDescription>
                 </Alert>
               ) : reviews.length === 0 ? (
-                <p className="text-muted-foreground">No reviews yet. Be the first to review!</p>
+                <p className="text-muted-foreground text-center py-8">No reviews yet. Be the first to review!</p>
               ) : (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {reviews.map((review) => (
-                    <div key={review.id} className="border rounded-lg p-4 space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium">{review.username}</span>
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(review.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {[...Array(5)].map((_, i) => (
-                          <StarFilledIcon 
-                            key={i}
-                            className={`h-4 w-4 ${i < review.rating ? 'text-yellow-500' : 'text-muted-foreground/20'}`}
-                          />
-                        ))}
-                      </div>
-                      <p className="text-sm">{review.reviewText}</p>
-                    </div>
+                    <Card key={review.id}>
+                      <CardContent className="pt-6 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">{review.username}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(review.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {[...Array(5)].map((_, i) => (
+                            <StarFilledIcon 
+                              key={i}
+                              className={cn(
+                                "h-4 w-4",
+                                i < review.rating ? "text-yellow-500" : "text-muted-foreground/20"
+                              )}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-muted-foreground">{review.reviewText}</p>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-medium mb-2">Release Date</h3>
-            <p className="text-muted-foreground">
-              {new Date(game.releaseDate).toLocaleDateString()}
-            </p>
-          </div>
-          <div>
-            <h3 className="font-medium mb-2">Developer</h3>
-            <p className="text-muted-foreground">{game.developer}</p>
-          </div>
-          <div>
-            <h3 className="font-medium mb-2">Publisher</h3>
-            <p className="text-muted-foreground">{game.publisher}</p>
-          </div>
-          {gameInstance && (
-            <>
-              <div>
-                <h3 className="font-medium mb-2">Play Time</h3>
-                <p className="text-muted-foreground">
-                  {gameInstance.playTime} minutes
-                </p>
-              </div>
-              <div>
-                <h3 className="font-medium mb-2">Last Played</h3>
-                <p className="text-muted-foreground">
-                  {gameInstance.lastPlayed
-                    ? new Date(gameInstance.lastPlayed).toLocaleDateString()
-                    : 'Never played'}
-                </p>
-              </div>
-            </>
-          )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

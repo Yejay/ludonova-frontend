@@ -9,30 +9,180 @@ import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api/client';
 import { useState } from 'react';
 import { AxiosError } from 'axios';
+import { Progress } from '@/components/ui/progress';
+
+interface SyncStats {
+  totalGames: number;
+  existingGames: number;
+  newGames: number;
+  failedGames: number;
+  gameInstances: number;
+}
+
+interface SteamGame {
+  name: string;
+  appid: number;
+  playtime_forever: number;
+  rtime_last_played: number | null;
+}
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<string>('');
+  const [syncStats, setSyncStats] = useState<SyncStats | null>(null);
+  const [syncStep, setSyncStep] = useState<number>(0);
 
   const handleSyncSteamLibrary = async () => {
     if (!user?.steamUser) return;
     
     setIsSyncing(true);
+    setSyncProgress('');
+    setSyncStats(null);
+    setSyncStep(1);
+
     try {
-      await api.post('/steam/sync');
+      const startTime = Date.now();
+      
+      // Step 1: Get Steam library
+      setSyncProgress('Fetching your Steam library...');
+      const libraryResponse = await api.get('/steam/library');
+      const games: SteamGame[] = libraryResponse.data.response.games;
+      setSyncStep(2);
+      
+      // Step 2: Search for existing games
+      setSyncProgress('Searching for existing games in our database...');
+      const gameTitles = games.map(game => game.name);
+      const existingGames = new Map<string, any>();
+      const newGames: SteamGame[] = [];
+      const failedGames: string[] = [];
+
+      // Search for games in batches of 20
+      const BATCH_SIZE = 20;
+      for (let i = 0; i < gameTitles.length; i += BATCH_SIZE) {
+        const batch = gameTitles.slice(i, i + BATCH_SIZE);
+        for (const title of batch) {
+          try {
+            const searchResponse = await api.get('/games', {
+              params: {
+                query: title,
+                page: 0,
+                size: 1
+              }
+            });
+
+            if (searchResponse.data.content.length > 0) {
+              existingGames.set(title, searchResponse.data.content[0]);
+            } else {
+              const steamGame = games.find(g => g.name === title);
+              if (steamGame) {
+                newGames.push(steamGame);
+              }
+            }
+          } catch (error) {
+            failedGames.push(title);
+          }
+        }
+        setSyncProgress(`Processing games... ${Math.min(100, Math.round((i + batch.length) / gameTitles.length * 100))}%`);
+      }
+      setSyncStep(3);
+
+      // Step 3: Create new games
+      if (newGames.length > 0) {
+        setSyncProgress('Adding new games to our database...');
+        for (let i = 0; i < newGames.length; i++) {
+          const game = newGames[i];
+          try {
+            const gameResponse = await api.post('/games', {
+              title: game.name,
+              apiId: game.appid.toString(),
+              source: 'STEAM',
+              platform: 'PC',
+              slug: game.name.toLowerCase()
+                .replace(/[^a-z0-9\s-]/g, '')
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-')
+                .trim(),
+              backgroundImage: `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/header.jpg`,
+              genres: ['Steam Game']
+            }).catch(error => {
+              if (error.response?.status === 500) {
+                return null;
+              }
+              throw error;
+            });
+
+            if (!gameResponse) {
+              failedGames.push(game.name);
+              continue;
+            }
+
+            existingGames.set(game.name, gameResponse.data);
+          } catch (error) {
+            failedGames.push(game.name);
+          }
+          setSyncProgress(`Adding new games... ${Math.round((i + 1) / newGames.length * 100)}%`);
+        }
+      }
+      setSyncStep(4);
+
+      // Step 4: Create game instances
+      setSyncProgress('Updating your game collection...');
+      const gameInstances = [];
+      for (const game of games) {
+        const existingGame = existingGames.get(game.name);
+        if (existingGame) {
+          gameInstances.push({
+            gameId: existingGame.id,
+            status: 'PLAYING',
+            playTime: game.playtime_forever,
+            lastPlayed: game.rtime_last_played ? new Date(game.rtime_last_played * 1000) : null
+          });
+        }
+      }
+
+      // Step 5: Send batch request
+      if (gameInstances.length > 0) {
+        const batchSize = 50;
+        let successfulInstances = 0;
+        for (let i = 0; i < gameInstances.length; i += batchSize) {
+          const batch = gameInstances.slice(i, i + batchSize);
+          try {
+            const response = await api.post('/game-instances/batch', {
+              gameInstances: batch
+            });
+            successfulInstances += response.data.length;
+            setSyncProgress(`Updating collection... ${Math.round((i + batch.length) / gameInstances.length * 100)}%`);
+          } catch (error) {
+            console.error('Error creating batch:', error);
+          }
+        }
+      }
+      setSyncStep(5);
+
+      const duration = (Date.now() - startTime) / 1000;
+      setSyncStats({
+        totalGames: games.length,
+        existingGames: existingGames.size,
+        newGames: newGames.length,
+        failedGames: failedGames.length,
+        gameInstances: gameInstances.length,
+      });
+
       toast({
         title: 'Success',
-        description: 'Your Steam library has been synced successfully.',
+        description: `Steam library synced in ${duration.toFixed(1)} seconds`,
       });
-    } catch (error: unknown) {
-      console.error('Failed to sync Steam library:', error instanceof AxiosError ? error.response?.data : error);
-      const errorMessage = error instanceof AxiosError 
-        ? error.response?.data?.message || 'Failed to sync Steam library. Please try again later.'
-        : 'Failed to sync Steam library. Please try again later.';
+    } catch (error) {
+      console.error('Steam sync error:', error);
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || 'Failed to sync Steam library'
+        : 'Failed to sync Steam library';
+        
       toast({
         title: 'Error',
-        description: errorMessage,
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -122,11 +272,33 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <h4 className="font-medium">Steam Library Sync</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Keep your game library up to date by syncing with your Steam account.
-                  </p>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Steam Library Sync</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Keep your game library up to date by syncing with your Steam account.
+                    </p>
+                  </div>
+
+                  {isSyncing && (
+                    <div className="space-y-4">
+                      <Progress value={syncStep * 20} className="w-full" />
+                      <p className="text-sm text-muted-foreground text-center">{syncProgress}</p>
+                    </div>
+                  )}
+
+                  {syncStats && !isSyncing && (
+                    <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm">
+                      <p>✓ Total games processed: {syncStats.totalGames}</p>
+                      <p>✓ Games already in database: {syncStats.existingGames}</p>
+                      <p>✓ New games added: {syncStats.newGames}</p>
+                      <p>✓ Games added to collection: {syncStats.gameInstances}</p>
+                      {syncStats.failedGames > 0 && (
+                        <p className="text-destructive">⚠ Failed to process: {syncStats.failedGames}</p>
+                      )}
+                    </div>
+                  )}
+
                   <Button 
                     onClick={handleSyncSteamLibrary} 
                     disabled={isSyncing}
