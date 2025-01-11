@@ -14,6 +14,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDownIcon, StarFilledIcon, StarIcon } from '@radix-ui/react-icons';
@@ -24,6 +25,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 interface Game {
   id: number;
@@ -59,9 +61,10 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   // Fetch game details
-  const { data: game, isLoading: isLoadingGame } = useQuery({
+  const { data: game, isLoading: isLoadingGame, error: gameError } = useQuery({
     queryKey: ['game', id],
     queryFn: async () => {
       const response = await api.get<Game>(`/games/${id}`);
@@ -138,22 +141,31 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
     }
   };
 
-  const handleStatusChange = async (newStatus: GameStatus) => {
+  const handleStatusChange = async (status: GameStatus) => {
     if (!gameInstance) return;
+
     try {
-      console.log('Updating game status:', { gameId: id, status: newStatus });
-      const response = await api.patch(`/game-instances/${gameInstance.id}/status?status=${newStatus}`);
-      console.log('Successfully updated game status:', response.data);
-      
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['game-instance', id] }),
-        queryClient.invalidateQueries({ queryKey: ['game-instances'] })
-      ]);
+      await api.patch(`/game-instances/${gameInstance.id}/status`, null, {
+        params: { status }
+      });
+      await queryClient.invalidateQueries({ queryKey: ['game-instance', id] });
+      await queryClient.invalidateQueries({ queryKey: ['game-instances'] });
+      await queryClient.invalidateQueries({ queryKey: ['library-stats'] });
     } catch (error) {
       console.error('Failed to update game status:', error);
-      if (error instanceof AxiosError && error.response) {
-        console.error('Error response:', error.response.data);
-      }
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!gameInstance) return;
+
+    try {
+      await api.delete(`/game-instances/${gameInstance.id}`);
+      await queryClient.invalidateQueries({ queryKey: ['game-instances'] });
+      await queryClient.invalidateQueries({ queryKey: ['library-stats'] });
+      router.push('/games');
+    } catch (error) {
+      console.error('Failed to delete game from library:', error);
     }
   };
 
@@ -300,6 +312,13 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
                         {getStatusDisplayName(status)}
                       </DropdownMenuItem>
                     ))}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-red-500 focus:text-red-500 focus:bg-red-500/10"
+                      onClick={handleDelete}
+                    >
+                      Remove from Library
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (

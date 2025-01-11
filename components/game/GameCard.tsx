@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ interface LibraryGameCardProps extends BaseGameCardProps {
     progressPercentage: number;
   };
   onStatusChange: (gameId: number, status: GameStatus) => Promise<void>;
+  onDelete: (gameId: number) => Promise<void>;
 }
 
 interface BrowseGameCardProps extends BaseGameCardProps {
@@ -89,6 +91,16 @@ export function GameCard(props: GameCardProps) {
                     {getStatusDisplayName(status)}
                   </DropdownMenuItem>
                 ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-red-500 focus:text-red-500 focus:bg-red-500/10"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    props.onDelete(props.instance.id);
+                  }}
+                >
+                  Remove from Library
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (

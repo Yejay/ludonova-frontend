@@ -197,6 +197,16 @@ export default function GamesPage() {
 		}
 	};
 
+	const handleDelete = async (instanceId: number) => {
+		try {
+			await api.delete(`/game-instances/${instanceId}`);
+			await queryClient.invalidateQueries({ queryKey: [GAME_INSTANCES_KEY] });
+			await queryClient.invalidateQueries({ queryKey: [LIBRARY_STATS_KEY] });
+		} catch (error) {
+			console.error('Failed to delete game from library:', error);
+		}
+	};
+
 	return (
 		<div className="flex-1 flex flex-col items-center py-8 space-y-8">
 			{/* Search Section */}
@@ -244,7 +254,8 @@ export default function GamesPage() {
 									playTime: instance.playTime,
 									progressPercentage: instance.progressPercentage
 								},
-								onStatusChange: (instanceId: number, status: GameStatus) => handleStatusChange(game.id, instanceId, status)
+								onStatusChange: (instanceId: number, status: GameStatus) => handleStatusChange(game.id, instanceId, status),
+								onDelete: (instanceId: number) => handleDelete(instanceId)
 							} : {
 								variant: 'browse' as const,
 								gameId: game.id,

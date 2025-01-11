@@ -63,6 +63,16 @@ export function GameLibrary() {
     }
   };
 
+  const handleDelete = async (instanceId: number) => {
+    try {
+      await api.delete(`/game-instances/${instanceId}`);
+      queryClient.invalidateQueries({ queryKey: ['game-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['library-stats'] });
+    } catch (error) {
+      console.error('Failed to delete game from library:', error);
+    }
+  };
+
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
@@ -183,6 +193,7 @@ export function GameLibrary() {
                   progressPercentage: game.progressPercentage
                 }}
                 onStatusChange={handleStatusChange}
+                onDelete={handleDelete}
               />
             ))}
           </div>
