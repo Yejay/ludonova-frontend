@@ -155,6 +155,12 @@ export default function ProfilePage() {
             successfulInstances += response.data.length;
             setSyncProgress(`Updating collection... ${Math.round((i + batch.length) / gameInstances.length * 100)}%`);
           } catch (error) {
+            // If it's a 400 error due to games already existing, we can ignore it
+            // as this is expected behavior when re-syncing
+            if (error instanceof AxiosError && error.response?.status === 400) {
+              console.log('Some games already exist in library, skipping...');
+              continue;
+            }
             console.error('Error creating batch:', error);
           }
         }
