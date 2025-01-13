@@ -1,18 +1,18 @@
 // app/(auth)/steam-callback/page.tsx
 'use client'
-import { useEffect, useState } from 'react'
+
+import { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { authApi } from '@/lib/api/auth'
 import { Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
-export default function SteamCallbackPage() {
+function SteamCallbackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login } = useAuth()
   const { toast } = useToast()
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function handleSteamCallback() {
@@ -37,7 +37,6 @@ export default function SteamCallbackPage() {
           stack: error instanceof Error ? error.stack : undefined
         })
         
-        setError('Authentication failed')
         toast({
           title: 'Authentication Failed',
           description: error instanceof Error 
@@ -52,21 +51,9 @@ export default function SteamCallbackPage() {
     if (searchParams.size > 0) {
       handleSteamCallback()
     } else {
-      setError('Invalid callback parameters')
       router.replace('/auth/login')
     }
   }, [searchParams, login, router, toast])
-
-  if (error) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center">
-        <div className="text-center space-y-4">
-          <p className="text-destructive">{error}</p>
-          <p className="text-sm text-muted-foreground">Redirecting to login...</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="flex h-screen w-screen items-center justify-center">
@@ -76,5 +63,22 @@ export default function SteamCallbackPage() {
         <p className="text-sm text-muted-foreground">Please wait while we complete your login</p>
       </div>
     </div>
+  )
+}
+
+export default function SteamCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen w-screen items-center justify-center">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+            <p className="text-lg">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <SteamCallbackContent />
+    </Suspense>
   )
 }
