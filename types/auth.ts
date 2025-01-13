@@ -3,6 +3,7 @@ export interface User {
     id: number
     username: string
     email: string | null
+    role: 'USER' | 'ADMIN'
     steamUser?: {
       steamId: string
       personaName: string

@@ -14,8 +14,9 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
+import { useAuth } from '@/hooks/use-auth'
 
-const navigation = [
+const baseNavigation = [
   {
     name: 'Dashboard',
     href: '/dashboard',
@@ -26,6 +27,9 @@ const navigation = [
     href: '/games',
     icon: Gamepad,
   },
+]
+
+const adminNavigation = [
   {
     name: 'Admin',
     href: '/admin',
@@ -41,6 +45,13 @@ const navigation = [
 export function DashboardNav() {
   const pathname = usePathname()
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const { user } = useAuth()
+
+  // Combine navigation items based on user role
+  const navigation = [
+    ...baseNavigation,
+    ...(user?.role === 'ADMIN' ? adminNavigation : []),
+  ]
 
   return (
     <nav className={cn(
