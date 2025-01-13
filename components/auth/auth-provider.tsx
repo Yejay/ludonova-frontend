@@ -3,6 +3,7 @@
 import { createContext, useCallback, useMemo, useState, useEffect } from 'react'
 import { cookies } from '@/utils/cookies'
 import type { User, AuthTokens } from '@/types/auth'
+import { useQueryClient } from '@tanstack/react-query'
 
 interface AuthContextType {
   user: User | null
@@ -19,6 +20,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<User | null>(() => cookies.getUser())
   const [tokens, setTokens] = useState<AuthTokens | null>(() => cookies.getTokens())
+  const queryClient = useQueryClient()
 
   // Initialize state from cookies on mount
   useEffect(() => {
@@ -52,12 +54,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setTokens(null)
     cookies.clearAuth()
     
+    // Clear all queries from the cache
+    queryClient.clear()
+    
     // Verify tokens were cleared
     const savedTokens = cookies.getTokens()
     if (savedTokens) {
       console.error('Failed to clear auth tokens from cookies');
     }
-  }, [])
+  }, [queryClient])
 
   const value = useMemo(
     () => ({

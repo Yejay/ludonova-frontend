@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
+  const [unverifiedEmail, setUnverifiedEmail] = useState('')
   const { login } = useAuth()
   const { toast } = useToast()
   const router = useRouter()
@@ -34,9 +35,44 @@ export default function LoginPage() {
       login(response.user, response.tokens)
       router.push('/dashboard')
     } catch (error) {
+      if (error instanceof AxiosError && error.response?.data?.errorCode === 'EMAIL_NOT_VERIFIED') {
+        setUnverifiedEmail(error.response.data.email || '')
+        toast({
+          title: 'Email Not Verified',
+          description: 'Please verify your email before logging in.',
+          variant: 'destructive',
+        })
+      } else {
+        const message = error instanceof AxiosError 
+          ? error.response?.data?.message || 'Invalid username or password'
+          : 'Invalid username or password'
+
+        toast({
+          title: 'Error',
+          description: message,
+          variant: 'destructive',
+        })
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handleResendVerification() {
+    if (!unverifiedEmail) return
+
+    setIsLoading(true)
+    try {
+      await authApi.resendVerification(unverifiedEmail)
+      toast({
+        title: 'Verification Email Sent',
+        description: 'Please check your email for the verification link.',
+        variant: 'default',
+      })
+    } catch (error) {
       const message = error instanceof AxiosError 
-        ? error.response?.data?.message || 'Invalid username or password'
-        : 'Invalid username or password'
+        ? error.response?.data?.message || 'Failed to resend verification email'
+        : 'Failed to resend verification email'
 
       toast({
         title: 'Error',
@@ -112,11 +148,11 @@ export default function LoginPage() {
             <div className="space-y-2">
               <Input
                 name="username"
-                placeholder="Username"
+                placeholder="Username or Email"
                 required
                 disabled={isLoading}
                 minLength={3}
-                maxLength={20}
+                maxLength={50}
                 className="bg-background/50 backdrop-blur-sm"
               />
             </div>
@@ -143,6 +179,22 @@ export default function LoginPage() {
                 'Sign In'
               )}
             </Button>
+
+            {unverifiedEmail && (
+              <div className="pt-4 space-y-4 border-t">
+                <p className="text-sm text-muted-foreground text-center">
+                  Your email is not verified. Need a new verification link?
+                </p>
+                <Button
+                  onClick={handleResendVerification}
+                  variant="outline"
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  Resend Verification Email
+                </Button>
+              </div>
+            )}
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">

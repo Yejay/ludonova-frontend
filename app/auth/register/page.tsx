@@ -5,16 +5,16 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { useAuth } from '@/hooks/use-auth'
 import { authApi } from '@/lib/api/auth'
-import { GamepadIcon, Loader2, Dices, Trophy, Target, Sword, Gamepad2, Joystick } from 'lucide-react'
+import { GamepadIcon, Loader2, Dices, Trophy, Target, Sword, Gamepad2, Joystick, Mail } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { AxiosError } from 'axios'
 import { cn } from '@/lib/utils'
 
 export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
-  const { login } = useAuth()
+  const [verificationSent, setVerificationSent] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState('')
   const { toast } = useToast()
   const router = useRouter()
 
@@ -26,6 +26,7 @@ export default function RegisterPage() {
       const formData = new FormData(event.currentTarget)
       const password = formData.get('password') as string
       const confirmPassword = formData.get('confirmPassword') as string
+      const email = formData.get('email') as string
 
       if (password !== confirmPassword) {
         toast({
@@ -36,20 +37,52 @@ export default function RegisterPage() {
         return
       }
 
-      const response = await authApi.register({
+      await authApi.register({
         username: formData.get('username') as string,
         password: password,
-        email: formData.get('email') as string,
+        email: email,
       })
       
-      // Log the user in after successful registration
-      login(response.user, response.tokens)
-      router.push('/dashboard')
+      setRegisteredEmail(email)
+      setVerificationSent(true)
+      
+      toast({
+        title: 'Registration Successful',
+        description: 'Please verify your email to continue.',
+        variant: 'default',
+      })
+
+      // Use replace instead of push to avoid the redirect being intercepted
+      router.replace(`/auth/verify-email?email=${encodeURIComponent(email)}`)
     } catch (error) {
       const message = error instanceof AxiosError 
         ? error.response?.data?.message || 'Failed to register'
         : 'Failed to register'
         
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handleResendVerification() {
+    setIsLoading(true)
+    try {
+      await authApi.resendVerification(registeredEmail)
+      toast({
+        title: 'Verification Email Sent',
+        description: 'Please check your email for the verification link.',
+        variant: 'default',
+      })
+    } catch (error) {
+      const message = error instanceof AxiosError 
+        ? error.response?.data?.message || 'Failed to resend verification email'
+        : 'Failed to resend verification email'
+
       toast({
         title: 'Error',
         description: message,
@@ -112,71 +145,107 @@ export default function RegisterPage() {
           {/* Title Section */}
           <div className="text-center space-y-2">
             <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">
-              Join LudoNova
+              {verificationSent ? 'Check Your Email' : 'Join LudoNova'}
             </h1>
             <p className="text-xl text-muted-foreground">
-              Create an account to start your gaming journey
+              {verificationSent 
+                ? 'Please verify your email address to continue'
+                : 'Create an account to start your gaming journey'}
             </p>
           </div>
 
-          {/* Registration Form */}
-          <form onSubmit={onSubmit} className="space-y-4 bg-card/95 backdrop-blur-sm p-8 rounded-lg border shadow-lg">
-            <div className="space-y-2">
-              <Input
-                name="username"
-                placeholder="Username"
-                required
-                disabled={isLoading}
-                minLength={3}
-                maxLength={50}
-                className="bg-background/50 backdrop-blur-sm"
-              />
+          {verificationSent ? (
+            <div className="space-y-6 bg-card/95 backdrop-blur-sm p-8 rounded-lg border shadow-lg text-center">
+              <Mail className="h-12 w-12 mx-auto text-primary" />
+              <div className="space-y-2">
+                <p>We&apos;ve sent a verification link to:</p>
+                <p className="font-medium">{registeredEmail}</p>
+                <p className="text-sm text-muted-foreground">
+                  Please check your email and click the verification link to activate your account.
+                </p>
+              </div>
+              <div className="space-y-4">
+                <Button
+                  onClick={handleResendVerification}
+                  variant="outline"
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  {isLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    'Resend Verification Email'
+                  )}
+                </Button>
+                <Button
+                  onClick={() => router.push('/auth/login')}
+                  variant="ghost"
+                  className="w-full"
+                >
+                  Return to Login
+                </Button>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Input
-                name="email"
-                type="email"
-                placeholder="Email"
-                required
+          ) : (
+            /* Registration Form */
+            <form onSubmit={onSubmit} className="space-y-4 bg-card/95 backdrop-blur-sm p-8 rounded-lg border shadow-lg">
+              <div className="space-y-2">
+                <Input
+                  name="username"
+                  placeholder="Username"
+                  required
+                  disabled={isLoading}
+                  minLength={3}
+                  maxLength={50}
+                  className="bg-background/50 backdrop-blur-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Input
+                  name="email"
+                  type="email"
+                  placeholder="Email"
+                  required
+                  disabled={isLoading}
+                  className="bg-background/50 backdrop-blur-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Input
+                  name="password"
+                  type="password"
+                  placeholder="Password"
+                  required
+                  disabled={isLoading}
+                  minLength={6}
+                  className="bg-background/50 backdrop-blur-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Input
+                  name="confirmPassword"
+                  type="password"
+                  placeholder="Confirm Password"
+                  required
+                  disabled={isLoading}
+                  minLength={6}
+                  className="bg-background/50 backdrop-blur-sm"
+                />
+              </div>
+              <Button 
+                className="w-full bg-primary/90 hover:bg-primary" 
+                type="submit" 
                 disabled={isLoading}
-                className="bg-background/50 backdrop-blur-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Input
-                name="password"
-                type="password"
-                placeholder="Password"
-                required
-                disabled={isLoading}
-                minLength={6}
-                className="bg-background/50 backdrop-blur-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Input
-                name="confirmPassword"
-                type="password"
-                placeholder="Confirm Password"
-                required
-                disabled={isLoading}
-                minLength={6}
-                className="bg-background/50 backdrop-blur-sm"
-              />
-            </div>
-            <Button 
-              className="w-full bg-primary/90 hover:bg-primary" 
-              type="submit" 
-              disabled={isLoading}
-              size="lg"
-            >
-              {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                'Create Account'
-              )}
-            </Button>
-          </form>
+                size="lg"
+              >
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  'Create Account'
+                )}
+              </Button>
+            </form>
+          )}
 
           {/* Sign In Link */}
           <div className="text-center">

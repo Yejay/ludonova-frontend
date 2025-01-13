@@ -1,5 +1,4 @@
 // lib/api/auth.ts
-import axios from 'axios';
 import { api } from './client'
 import type { AuthResponse, LoginCredentials } from '@/types/auth'
 
@@ -10,41 +9,40 @@ export interface RegisterCredentials {
 }
 
 export const authApi = {
-  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/auth/login', credentials)
+  async login(credentials: LoginCredentials): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/login', {
+      login: credentials.username,
+      password: credentials.password
+    })
     return response.data
   },
 
-  register: async (credentials: RegisterCredentials): Promise<AuthResponse> => {
+  async register(credentials: RegisterCredentials): Promise<AuthResponse> {
     const response = await api.post<AuthResponse>('/auth/register', credentials)
     return response.data
   },
 
-  getSteamAuthUrl: async (): Promise<{ url: string }> => {
+  async verifyEmail(email: string, code: string): Promise<void> {
+    await api.post('/auth/verify-email', null, {
+      params: { email, code }
+    })
+  },
+
+  async resendVerification(email: string): Promise<void> {
+    await api.post('/auth/resend-verification', null, {
+      params: { email }
+    })
+  },
+
+  async getSteamAuthUrl(): Promise<{ url: string }> {
     const response = await api.get<{ url: string }>('/auth/steam/login')
     return response.data
   },
 
-  handleSteamCallback: async (params: URLSearchParams): Promise<AuthResponse> => {
-    try {
-      console.log('Steam callback params:', Object.fromEntries(params))
-      const response = await api.get<AuthResponse>('/auth/steam/return', {
-        params: Object.fromEntries(params)
-      })
-      console.log('Steam auth response:', response.data)
-      return response.data
-    } catch (error) {
-      // Better error logging
-      if (axios.isAxiosError(error)) {
-        console.error('Steam API error:', {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message
-        })
-      } else {
-        console.error('Steam callback error:', error)
-      }
-      throw error
-    }
+  async handleSteamCallback(params: URLSearchParams): Promise<AuthResponse> {
+    const response = await api.get<AuthResponse>('/auth/steam/return', {
+      params: Object.fromEntries(params.entries())
+    })
+    return response.data
   }
 }

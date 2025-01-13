@@ -6,6 +6,7 @@ const publicPaths = [
   '/', 
   '/auth/login',
   '/auth/register',
+  '/auth/verify-email',
   '/auth/steam/callback'
 ]
 
