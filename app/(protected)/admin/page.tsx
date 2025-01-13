@@ -52,6 +52,7 @@ import {
 	ChevronsLeft,
 	ChevronsRight,
 	ArrowUpDown,
+	Info,
 } from 'lucide-react';
 import {
 	Tooltip,
@@ -59,7 +60,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Info } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 function UserForm({ 
 	user, 
@@ -77,7 +78,8 @@ function UserForm({
 			username: '',
 			email: '',
 			role: 'USER',
-			password: mode === 'create' ? '' : undefined
+			password: mode === 'create' ? '' : undefined,
+			emailVerified: false
 		}
 	);
 
@@ -127,16 +129,42 @@ function UserForm({
 			</div>
 
 			{mode === 'create' && (
-				<div className="space-y-2">
-					<Label htmlFor="password">Password</Label>
-					<Input
-						id="password"
-						type="password"
-						value={(formData as CreateUserData).password || ''}
-						onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-						required
-					/>
-				</div>
+				<>
+					<div className="space-y-2">
+						<Label htmlFor="password">Password</Label>
+						<Input
+							id="password"
+							type="password"
+							value={(formData as CreateUserData).password || ''}
+							onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+							required
+						/>
+					</div>
+
+					<div className="flex items-center space-x-2">
+						<Checkbox
+							id="emailVerified"
+							checked={(formData as CreateUserData).emailVerified}
+							onCheckedChange={(checked: boolean | 'indeterminate') => 
+								setFormData(prev => ({ 
+									...prev, 
+									emailVerified: checked === true 
+								}))
+							}
+						/>
+						<div className="grid gap-1.5 leading-none">
+							<Label
+								htmlFor="emailVerified"
+								className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+							>
+								Pre-verify Email
+							</Label>
+							<p className="text-sm text-muted-foreground">
+								Skip email verification for this user
+							</p>
+						</div>
+					</div>
+				</>
 			)}
 
 			<div className="space-y-2">

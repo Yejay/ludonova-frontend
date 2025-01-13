@@ -31,6 +31,7 @@ export interface CreateUserData {
 	password: string;
 	role?: 'USER' | 'ADMIN';
 	steamUser?: SteamUser;
+	emailVerified?: boolean;
 }
 
 // Interface for updating an existing user
