@@ -1,21 +1,9 @@
-// import { api } from './client';
-// import type { UserResponse } from '@/types/user';
-
-// export async function fetchUsers() {
-//   const { data } = await api.get<UserResponse>('/user');
-//   return data;
-// }
-
-// export async function deleteUser(id: number) {
-//   await api.delete(`/user/${id}`);
-// }
-
 import { api } from './client';
-import type { User, UserResponse, CreateUserData, UpdateUserData } from '@/types/user';
+import type { User, CreateUserData, UpdateUserData } from '@/types/user';
 
-// Get all users (paginated)
+// Get all users
 export async function fetchUsers() {
-  const { data } = await api.get<UserResponse>('/user');
+  const { data } = await api.get<User[]>('/user');
   return data;
 }
 
