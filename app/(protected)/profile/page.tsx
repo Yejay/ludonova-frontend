@@ -197,17 +197,17 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center py-8 space-y-8">
+    <div className="flex-1 flex flex-col items-center py-8 space-y-8 max-w-7xl mx-auto w-full">
       {/* Title Section */}
       <div className="flex flex-col items-center space-y-4 w-full px-4">
-        <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">
+        <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600 truncate max-w-full">
           {user?.steamUser?.personaName || user?.username}&apos;s Profile
         </h1>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 w-full px-4">
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2 w-full px-2 sm:px-4 md:px-6">
         {/* Profile Information */}
-        <Card>
+        <Card className="w-full overflow-hidden">
           <CardHeader>
             <CardTitle>Profile Information</CardTitle>
           </CardHeader>
@@ -227,25 +227,25 @@ export default function ProfilePage() {
 
             {/* User Information */}
             <div className="space-y-4">
-              <div className="flex items-center space-x-2 text-muted-foreground">
-                <User className="h-4 w-4" />
-                <span>Display Name:</span>
-                <span className="font-medium text-foreground">
+              <div className="flex items-center space-x-2 text-muted-foreground min-w-0">
+                <User className="h-4 w-4 shrink-0" />
+                <span className="shrink-0">Display Name:</span>
+                <span className="font-medium text-foreground truncate">
                   {user?.steamUser?.personaName || user?.username}
                 </span>
               </div>
               {user?.steamUser && (
-                <div className="flex items-center space-x-2 text-muted-foreground">
-                  <GamepadIcon className="h-4 w-4" />
-                  <span>System Username:</span>
-                  <span className="font-medium text-foreground">{user.username}</span>
+                <div className="flex items-center space-x-2 text-muted-foreground min-w-0">
+                  <GamepadIcon className="h-4 w-4 shrink-0" />
+                  <span className="shrink-0">System Username:</span>
+                  <span className="font-medium text-foreground truncate">{user.username}</span>
                 </div>
               )}
               {user?.email && (
-                <div className="flex items-center space-x-2 text-muted-foreground">
-                  <Mail className="h-4 w-4" />
-                  <span>Email:</span>
-                  <span className="font-medium text-foreground">{user.email}</span>
+                <div className="flex items-center space-x-2 text-muted-foreground min-w-0">
+                  <Mail className="h-4 w-4 shrink-0" />
+                  <span className="shrink-0">Email:</span>
+                  <span className="font-medium text-foreground truncate">{user.email}</span>
                 </div>
               )}
             </div>
@@ -253,48 +253,48 @@ export default function ProfilePage() {
         </Card>
 
         {/* Steam Integration */}
-        <Card>
+        <Card className="w-full overflow-hidden">
           <CardHeader>
             <CardTitle>Steam Integration</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {user?.steamUser ? (
               <div className="space-y-6">
-                <div className="flex items-center space-x-4">
-                  <Avatar className="h-12 w-12">
+                <div className="flex items-center space-x-2">
+                  <Avatar className="h-8 w-8 md:h-12 md:w-12 shrink-0">
                     <AvatarImage src={user.steamUser.avatarUrl} alt={user.steamUser.personaName} />
                   </Avatar>
-                  <div className="space-y-1">
-                    <p className="font-medium text-lg">{user.steamUser.personaName}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-base md:text-lg truncate">{user.steamUser.personaName}</p>
                     <a 
                       href={user.steamUser.profileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-muted-foreground hover:text-primary inline-flex items-center"
+                      className="text-xs md:text-sm text-muted-foreground hover:text-primary inline-flex items-center"
                     >
-                      <GamepadIcon className="h-4 w-4 mr-1" />
-                      View Steam Profile
+                      <GamepadIcon className="h-3 w-3 md:h-4 md:w-4 mr-1 shrink-0" />
+                      <span className="truncate">View Steam Profile</span>
                     </a>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Steam Library Sync</h4>
-                    <p className="text-sm text-muted-foreground">
+                <div className="space-y-3 md:space-y-4">
+                  <div className="space-y-1 md:space-y-2">
+                    <h4 className="font-medium text-sm md:text-base">Steam Library Sync</h4>
+                    <p className="text-xs md:text-sm text-muted-foreground">
                       Keep your game library up to date by syncing with your Steam account.
                     </p>
                   </div>
 
                   {isSyncing && (
-                    <div className="space-y-4">
+                    <div className="space-y-3 md:space-y-4">
                       <Progress value={syncStep * 20} className="w-full" />
-                      <p className="text-sm text-muted-foreground text-center">{syncProgress}</p>
+                      <p className="text-xs md:text-sm text-muted-foreground text-center">{syncProgress}</p>
                     </div>
                   )}
 
                   {syncStats && !isSyncing && (
-                    <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm">
+                    <div className="bg-muted/50 rounded-lg p-3 md:p-4 space-y-1 md:space-y-2 text-xs md:text-sm">
                       <p>✓ Total games processed: {syncStats.totalGames}</p>
                       <p>✓ Games already in database: {syncStats.existingGames}</p>
                       <p>✓ New games added: {syncStats.newGames}</p>
@@ -308,9 +308,9 @@ export default function ProfilePage() {
                   <Button 
                     onClick={handleSyncSteamLibrary} 
                     disabled={isSyncing}
-                    className="w-full"
+                    className="w-full h-8 md:h-10 text-xs md:text-sm"
                   >
-                    <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4 ${isSyncing ? 'animate-spin' : ''}`} />
                     {isSyncing ? 'Syncing...' : 'Sync Steam Library'}
                   </Button>
                 </div>

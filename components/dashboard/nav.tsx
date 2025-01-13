@@ -55,13 +55,20 @@ export function DashboardNav() {
 
   return (
     <nav className={cn(
-      "relative min-h-[calc(100vh-4rem)] border-r border-border bg-background/95 transition-all duration-300",
-      isCollapsed ? "w-16" : "w-64"
+      "relative border-border bg-background/95 transition-all duration-300",
+      // Mobile: bottom navigation
+      "md:min-h-[calc(100vh-4rem)] md:border-r fixed bottom-0 left-0 right-0 md:relative",
+      // Mobile: full width, desktop: collapsible width
+      "h-16 md:h-auto w-full md:w-auto",
+      "border-t md:border-t-0",
+      "bg-background/80 backdrop-blur-lg md:backdrop-blur-none",
+      "z-50",
+      isCollapsed ? "md:w-16" : "md:w-64"
     )}>
       <Button
         variant="ghost"
         size="icon"
-        className="absolute -right-10 top-4 h-8 w-8 rounded-full border bg-background"
+        className="absolute -right-10 top-4 h-8 w-8 rounded-full border bg-background hidden md:flex"
         onClick={() => setIsCollapsed(!isCollapsed)}
       >
         {isCollapsed ? (
@@ -71,7 +78,14 @@ export function DashboardNav() {
         )}
       </Button>
       
-      <div className="space-y-2 p-4">
+      <div className={cn(
+        "flex md:block",
+        "justify-around md:justify-start",
+        "px-2 md:p-4",
+        "h-full md:h-auto",
+        "items-center", // Center items vertically in mobile
+        "md:space-y-2"
+      )}>
         {navigation.map((item) => {
           const Icon = item.icon
           return (
@@ -79,16 +93,28 @@ export function DashboardNav() {
               key={item.name}
               href={item.href}
               className={cn(
-                'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground',
+                'flex items-center transition-colors hover:bg-accent hover:text-accent-foreground',
+                // Mobile: centered icons, desktop: left-aligned with text
+                'flex-col md:flex-row justify-center md:justify-start',
+                'py-1 md:py-2 px-3 md:px-3',
+                'text-[11px] md:text-sm font-medium',
+                'rounded-lg',
+                'min-w-[64px] md:min-w-0', // Ensure minimum touch target width
                 pathname === item.href 
                   ? 'bg-accent text-accent-foreground' 
                   : 'text-muted-foreground',
-                isCollapsed && 'justify-center px-2'
+                isCollapsed && 'md:justify-center md:px-2'
               )}
               title={isCollapsed ? item.name : undefined}
             >
-              <Icon className="h-5 w-5" />
-              {!isCollapsed && <span className="ml-3">{item.name}</span>}
+              <Icon className="h-5 w-5 mb-0.5 md:mb-0" />
+              <span className={cn(
+                "mt-0.5 md:mt-0 md:ml-3",
+                "line-clamp-1",
+                isCollapsed && "md:hidden"
+              )}>
+                {item.name}
+              </span>
             </Link>
           )
         })}

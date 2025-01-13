@@ -61,6 +61,7 @@ import {
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
 
 function UserForm({ 
 	user, 
@@ -89,19 +90,19 @@ function UserForm({
 				e.preventDefault();
 				onSubmit(formData);
 			}} 
-			className="space-y-4"
+			className="space-y-4 px-1"
 		>
 			<div className="space-y-2">
 				<div className="flex items-center gap-2">
-					<Label htmlFor="username">Username</Label>
+					<Label htmlFor="username" className="text-sm">Username</Label>
 					{mode === 'edit' && (
 						<TooltipProvider>
 							<Tooltip>
 								<TooltipTrigger asChild>
-									<Info className="h-4 w-4 text-muted-foreground" />
+									<Info className="h-3.5 w-3.5 text-muted-foreground" />
 								</TooltipTrigger>
 								<TooltipContent>
-									<p>Usernames cannot be changed after account creation</p>
+									<p className="text-xs">Usernames cannot be changed after account creation</p>
 								</TooltipContent>
 							</Tooltip>
 						</TooltipProvider>
@@ -113,35 +114,40 @@ function UserForm({
 					onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
 					required={mode === 'create'}
 					disabled={mode === 'edit'}
-					className={mode === 'edit' ? 'bg-muted cursor-not-allowed' : ''}
+					className={cn(
+						"h-8 md:h-9 text-sm",
+						mode === 'edit' ? 'bg-muted cursor-not-allowed' : ''
+					)}
 				/>
 			</div>
 			
 			<div className="space-y-2">
-				<Label htmlFor="email">Email</Label>
+				<Label htmlFor="email" className="text-sm">Email</Label>
 				<Input
 					id="email"
 					type="email"
 					value={formData.email || ''}
 					onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
 					required={mode === 'create'}
+					className="h-8 md:h-9 text-sm"
 				/>
 			</div>
 
 			{mode === 'create' && (
 				<>
 					<div className="space-y-2">
-						<Label htmlFor="password">Password</Label>
+						<Label htmlFor="password" className="text-sm">Password</Label>
 						<Input
 							id="password"
 							type="password"
 							value={(formData as CreateUserData).password || ''}
 							onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
 							required
+							className="h-8 md:h-9 text-sm"
 						/>
 					</div>
 
-					<div className="flex items-center space-x-2">
+					<div className="flex items-start space-x-2 pt-2">
 						<Checkbox
 							id="emailVerified"
 							checked={(formData as CreateUserData).emailVerified}
@@ -151,15 +157,16 @@ function UserForm({
 									emailVerified: checked === true 
 								}))
 							}
+							className="mt-0.5"
 						/>
-						<div className="grid gap-1.5 leading-none">
+						<div className="grid gap-1 leading-none">
 							<Label
 								htmlFor="emailVerified"
-								className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+								className="text-sm font-medium leading-none cursor-pointer"
 							>
 								Pre-verify Email
 							</Label>
-							<p className="text-sm text-muted-foreground">
+							<p className="text-xs text-muted-foreground">
 								Skip email verification for this user
 							</p>
 						</div>
@@ -168,12 +175,12 @@ function UserForm({
 			)}
 
 			<div className="space-y-2">
-				<Label htmlFor="role">Role</Label>
+				<Label htmlFor="role" className="text-sm">Role</Label>
 				<Select
 					value={formData.role}
 					onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as 'USER' | 'ADMIN' }))}
 				>
-					<SelectTrigger>
+					<SelectTrigger className="h-8 md:h-9 text-sm">
 						<SelectValue placeholder="Select role" />
 					</SelectTrigger>
 					<SelectContent>
@@ -183,10 +190,14 @@ function UserForm({
 				</Select>
 			</div>
 
-			<Button type="submit" disabled={isSubmitting}>
+			<Button 
+				type="submit" 
+				disabled={isSubmitting}
+				className="w-full h-8 md:h-9 text-sm mt-6"
+			>
 				{isSubmitting ? (
 					<div className="flex items-center gap-2">
-						<div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+						<div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
 						{mode === 'create' ? 'Creating...' : 'Updating...'}
 					</div>
 				) : (
@@ -250,9 +261,9 @@ function AdminPage() {
 	const [sortField, setSortField] = useState<keyof User>('id');
 	const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-	// Pagination states
+	// Pagination state
 	const [page, setPage] = useState(1);
-	const [itemsPerPage, setItemsPerPage] = useState(10);
+	const itemsPerPage = 10; // Fixed items per page
 
 	const { data, isLoading, error } = useQuery<User[]>({
 		queryKey: ['users'],
@@ -260,28 +271,29 @@ function AdminPage() {
 	});
 
 	const createUserMutation = useMutation({
-		mutationFn: (userData: CreateUserData) => createUser(userData),
+		mutationFn: createUser,
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['users'] });
 			toast.success('User created successfully');
 		},
 		onError: (error) => {
 			toast.error('Failed to create user');
-			console.error('Create error:', error);
+			console.error('Failed to create user:', error);
 		},
 	});
 
 	const updateUserMutation = useMutation({
-		mutationFn: ({ id, ...userData }: UpdateUserData & { id: number }) =>
-			updateUser(id, userData),
+		mutationFn: async ({ id, ...data }: UpdateUserData & { id: number }) => {
+			await updateUser(id, data);
+		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['users'] });
-			toast.success('User updated successfully');
 			setEditingUser(null);
+			toast.success('User updated successfully');
 		},
 		onError: (error) => {
 			toast.error('Failed to update user');
-			console.error('Update error:', error);
+			console.error('Failed to update user:', error);
 		},
 	});
 
@@ -290,17 +302,16 @@ function AdminPage() {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['users'] });
 			toast.success('User deleted successfully');
-			setUserToDelete(null);
 		},
 		onError: (error) => {
 			toast.error('Failed to delete user');
-			console.error('Delete error:', error);
+			console.error('Failed to delete user:', error);
 		},
 	});
 
 	const handleSort = (field: keyof User) => {
 		if (sortField === field) {
-			setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+			setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
 		} else {
 			setSortField(field);
 			setSortDirection('asc');
@@ -310,72 +321,54 @@ function AdminPage() {
 	const processData = (data: User[] | undefined) => {
 		if (!data) return [];
 
-		let processed = [...data];
-
-		// // Apply search filter
-		// if (searchQuery) {
-		// 	processed = processed.filter(
-		// 		(user) =>
-		// 			user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-		// 			user.email?.toLowerCase().includes(searchQuery.toLowerCase())
-		// 	);
-		// }
+		let filtered = [...data];
 
 		// Apply search filter
 		if (searchQuery) {
-			const query = searchQuery.toLowerCase().trim();
-			processed = processed.filter(
-				(user) =>
-					// Search in username
+			const query = searchQuery.toLowerCase();
+			filtered = filtered.filter(
+				user =>
 					user.username.toLowerCase().includes(query) ||
-					// Search in email
-					(user.email?.toLowerCase().includes(query) ?? false) ||
-					// Search in Steam username
-					(user.steamUser?.personaName.toLowerCase().includes(query) ??
-						false) ||
-					// Search in Steam ID
-					(user.steamUser?.steamId.toLowerCase().includes(query) ?? false) ||
-					// Search in role
-					user.role.toLowerCase().includes(query) ||
-					// Search in ID (convert to string first)
-					user.id.toString().includes(query)
+					user.email.toLowerCase().includes(query)
 			);
 		}
 
 		// Apply role filter
 		if (roleFilter !== 'ALL') {
-			processed = processed.filter((user) => user.role === roleFilter);
+			filtered = filtered.filter(user => user.role === roleFilter);
 		}
 
 		// Apply Steam filter
 		if (steamLinkedFilter !== 'ALL') {
-			processed = processed.filter((user) =>
+			filtered = filtered.filter(user =>
 				steamLinkedFilter === 'LINKED' ? user.steamUser : !user.steamUser
 			);
 		}
 
 		// Apply sorting
-		processed.sort((a, b) => {
+		filtered.sort((a, b) => {
 			const aValue = a[sortField];
 			const bValue = b[sortField];
 
-			if (aValue === null || bValue === null) {
-				return 0;
+			// Handle null values
+			if (aValue === null || bValue === null) return 0;
+			if (typeof aValue === 'string' && typeof bValue === 'string') {
+				return sortDirection === 'asc' 
+					? aValue.localeCompare(bValue)
+					: bValue.localeCompare(aValue);
 			}
-
-			if (sortDirection === 'asc') {
-				return String(aValue).localeCompare(String(bValue));
-			}
-			return String(bValue).localeCompare(String(aValue));
+			// For numbers and other types
+			if (aValue === bValue) return 0;
+			const comparison = aValue < bValue ? -1 : 1;
+			return sortDirection === 'asc' ? comparison : -comparison;
 		});
 
-		return processed;
+		return filtered;
 	};
 
 	const processedData = processData(data);
-	const totalItems = processedData.length;
-	const totalPages = Math.ceil(totalItems / itemsPerPage);
-	const paginatedData = processedData.slice(
+	const totalPages = Math.ceil(processedData.length / itemsPerPage);
+	const currentPageData = processedData.slice(
 		(page - 1) * itemsPerPage,
 		page * itemsPerPage
 	);
@@ -398,238 +391,204 @@ function AdminPage() {
 	}
 
 	return (
-		<div className='container mx-auto p-4 space-y-4'>
-			<div className='flex justify-between items-center'>
-				<h1 className='text-2xl font-bold'>Admin Dashboard</h1>
+		<div className="container py-4 md:py-8 space-y-6">
+			<h1 className="text-2xl md:text-4xl font-bold">Admin Dashboard</h1>
+
+			<div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
+				<div className="grid gap-4 md:grid-cols-4">
+					<div className="space-y-2">
+						<Label>Search</Label>
+						<Input
+							placeholder="Search users..."
+							value={searchQuery}
+							onChange={(e) => {
+								setSearchQuery(e.target.value);
+								setPage(1);
+							}}
+							className="h-8 md:h-9 text-xs md:text-sm"
+						/>
+					</div>
+
+					<div className="space-y-2">
+						<Label>Role Filter</Label>
+						<Select
+							value={roleFilter}
+							onValueChange={(value) => {
+								setRoleFilter(value as typeof roleFilter);
+								setPage(1);
+							}}
+						>
+							<SelectTrigger className="h-8 md:h-9 text-xs md:text-sm">
+								<SelectValue placeholder="Filter by role" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="ALL">All Roles</SelectItem>
+								<SelectItem value="USER">User</SelectItem>
+								<SelectItem value="ADMIN">Admin</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
+
+					<div className="space-y-2">
+						<Label>Steam Account</Label>
+						<Select
+							value={steamLinkedFilter}
+							onValueChange={(value) => {
+								setSteamLinkedFilter(value as typeof steamLinkedFilter);
+								setPage(1);
+							}}
+						>
+							<SelectTrigger className="h-8 md:h-9 text-xs md:text-sm">
+								<SelectValue placeholder="Filter by Steam" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="ALL">All Users</SelectItem>
+								<SelectItem value="LINKED">Steam Linked</SelectItem>
+								<SelectItem value="NOT_LINKED">No Steam</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
+				</div>
+
 				<Dialog>
 					<DialogTrigger asChild>
-						<Button>Create New User</Button>
+						<Button className="w-full md:w-auto h-8 md:h-9 text-xs md:text-sm">Create New User</Button>
 					</DialogTrigger>
-					<DialogContent>
+					<DialogContent className="sm:max-w-[425px]">
 						<DialogHeader>
 							<DialogTitle>Create New User</DialogTitle>
 						</DialogHeader>
 						<UserForm
-							mode='create'
-							onSubmit={(data) =>
-								createUserMutation.mutate(data as CreateUserData)
-							}
+							mode="create"
+							onSubmit={(data) => createUserMutation.mutate(data as CreateUserData)}
 							isSubmitting={createUserMutation.isPending}
 						/>
 					</DialogContent>
 				</Dialog>
 			</div>
 
-			<div className='grid gap-4 md:grid-cols-4'>
-				<div className='space-y-2'>
-					<Label>Search</Label>
-					<Input
-						placeholder='Search users...'
-						value={searchQuery}
-						onChange={(e) => {
-							setSearchQuery(e.target.value);
-							setPage(1); // Reset to first page on search
-						}}
-						className='w-full'
-					/>
-				</div>
-
-				<div className='space-y-2'>
-					<Label>Role Filter</Label>
-					<Select
-						value={roleFilter}
-						onValueChange={(value) => {
-							setRoleFilter(value as typeof roleFilter);
-							setPage(1);
-						}}
-					>
-						<SelectTrigger>
-							<SelectValue placeholder='Filter by role' />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value='ALL'>All Roles</SelectItem>
-							<SelectItem value='USER'>User</SelectItem>
-							<SelectItem value='ADMIN'>Admin</SelectItem>
-						</SelectContent>
-					</Select>
-				</div>
-
-				<div className='space-y-2'>
-					<Label>Steam Account</Label>
-					<Select
-						value={steamLinkedFilter}
-						onValueChange={(value) => {
-							setSteamLinkedFilter(value as typeof steamLinkedFilter);
-							setPage(1);
-						}}
-					>
-						<SelectTrigger>
-							<SelectValue placeholder='Filter by Steam' />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value='ALL'>All Users</SelectItem>
-							<SelectItem value='LINKED'>Steam Linked</SelectItem>
-							<SelectItem value='NOT_LINKED'>No Steam</SelectItem>
-						</SelectContent>
-					</Select>
-				</div>
-
-				<div className='space-y-2'>
-					<Label>Items per Page</Label>
-					<Select
-						value={itemsPerPage.toString()}
-						onValueChange={(value) => {
-							setItemsPerPage(Number(value));
-							setPage(1);
-						}}
-					>
-						<SelectTrigger>
-							<SelectValue placeholder='Items per page' />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value='5'>5</SelectItem>
-							<SelectItem value='10'>10</SelectItem>
-							<SelectItem value='20'>20</SelectItem>
-							<SelectItem value='50'>50</SelectItem>
-						</SelectContent>
-					</Select>
-				</div>
+			<div className="rounded-md border overflow-x-auto">
+				<Table>
+					<TableHeader>
+						<TableRow>
+							<TableHead className="w-[50px]">#</TableHead>
+							<TableHead>
+								<button
+									className="flex items-center gap-1 hover:text-accent-foreground text-xs md:text-sm"
+									onClick={() => handleSort('username')}
+								>
+									User
+									<ArrowUpDown className="h-3 w-3 md:h-4 md:w-4" />
+								</button>
+							</TableHead>
+							<TableHead className="hidden md:table-cell">Email</TableHead>
+							<TableHead>
+								<button
+									className="flex items-center gap-1 hover:text-accent-foreground text-xs md:text-sm"
+									onClick={() => handleSort('role')}
+								>
+									Role
+									<ArrowUpDown className="h-3 w-3 md:h-4 md:w-4" />
+								</button>
+							</TableHead>
+							<TableHead className="hidden md:table-cell">Steam</TableHead>
+							<TableHead className="text-right">Actions</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{currentPageData.map((user) => (
+							<TableRow key={user.id}>
+								<TableCell className="text-xs md:text-sm font-medium">{user.id}</TableCell>
+								<TableCell>
+									<div className="flex items-center gap-2">
+										{user.steamUser?.avatarUrl && (
+											<div className="relative w-6 h-6 md:w-8 md:h-8 rounded-full overflow-hidden">
+												<Image
+													src={user.steamUser.avatarUrl}
+													alt={user.username}
+													fill
+													className="object-cover"
+												/>
+											</div>
+										)}
+										<div className="min-w-0">
+											<p className="text-xs md:text-sm font-medium truncate">{user.username}</p>
+											<p className="text-xs text-muted-foreground truncate md:hidden">{user.email}</p>
+										</div>
+									</div>
+								</TableCell>
+								<TableCell className="hidden md:table-cell text-xs md:text-sm">
+									{user.email}
+								</TableCell>
+								<TableCell>
+									<span className={cn(
+										"inline-flex items-center rounded-full px-2 py-1 text-xs font-medium",
+										user.role === 'ADMIN' 
+											? "bg-primary/10 text-primary" 
+											: "bg-muted text-muted-foreground"
+									)}>
+										{user.role}
+									</span>
+								</TableCell>
+								<TableCell className="hidden md:table-cell">
+									{user.steamUser ? (
+										<span className="text-xs text-muted-foreground">
+											{user.steamUser.personaName}
+										</span>
+									) : (
+										<span className="text-xs text-muted-foreground">Not linked</span>
+									)}
+								</TableCell>
+								<TableCell className="text-right">
+									<div className="flex items-center justify-end gap-2">
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-7 w-7 md:h-8 md:w-8"
+											onClick={() => setEditingUser(user)}
+										>
+											<span className="sr-only">Edit</span>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 20 20"
+												fill="currentColor"
+												className="w-3 h-3 md:w-4 md:h-4"
+											>
+												<path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
+												<path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
+											</svg>
+										</Button>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-7 w-7 md:h-8 md:w-8 text-destructive hover:text-destructive"
+											onClick={() => setUserToDelete(user)}
+										>
+											<span className="sr-only">Delete</span>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 20 20"
+												fill="currentColor"
+												className="w-3 h-3 md:w-4 md:h-4"
+											>
+												<path
+													fillRule="evenodd"
+													d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+													clipRule="evenodd"
+												/>
+											</svg>
+										</Button>
+									</div>
+								</TableCell>
+							</TableRow>
+						))}
+					</TableBody>
+				</Table>
 			</div>
 
-			<Table>
-				<TableHeader>
-					<TableRow>
-						<TableHead className='w-[50px]'>
-							<button
-								className='flex items-center space-x-1'
-								onClick={() => {
-									if (sortField === 'id') {
-										setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-									} else {
-										setSortField('id');
-										setSortDirection('asc');
-									}
-								}}
-							>
-								<span>ID</span>
-								{sortField === 'id' && <ArrowUpDown className='h-4 w-4' />}
-							</button>
-						</TableHead>
-						<TableHead>
-							<button
-								className='flex items-center space-x-1'
-								onClick={() => {
-									if (sortField === 'username') {
-										setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-									} else {
-										setSortField('username');
-										setSortDirection('asc');
-									}
-								}}
-							>
-								<span>Username</span>
-								{sortField === 'username' && <ArrowUpDown className='h-4 w-4' />}
-							</button>
-						</TableHead>
-						<TableHead>
-							<button
-								className='flex items-center space-x-1'
-								onClick={() => {
-									if (sortField === 'email') {
-										setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-									} else {
-										setSortField('email');
-										setSortDirection('asc');
-									}
-								}}
-							>
-								<span>Email</span>
-								{sortField === 'email' && <ArrowUpDown className='h-4 w-4' />}
-							</button>
-						</TableHead>
-						<TableHead>Role</TableHead>
-						<TableHead>Steam</TableHead>
-						<TableHead className='text-right'>Actions</TableHead>
-					</TableRow>
-				</TableHeader>
-				<TableBody>
-					{paginatedData.map((user) => (
-						<TableRow key={user.id}>
-							<TableCell>{user.id}</TableCell>
-							<TableCell>
-								{user.steamUser?.personaName || user.username}
-							</TableCell>
-							<TableCell>{user.email || 'N/A'}</TableCell>
-							<TableCell>
-								{user.steamUser ? (
-									<a
-										href={user.steamUser.profileUrl}
-										target='_blank'
-										rel='noopener noreferrer'
-										className='flex items-center gap-2 hover:underline'
-									>
-										<Image
-											src={user.steamUser.avatarUrl}
-											alt='Steam avatar'
-											width={24}
-											height={24}
-											className='w-6 h-6 rounded-full'
-										/>
-										{user.steamUser.steamId}
-									</a>
-								) : (
-									'N/A'
-								)}
-							</TableCell>
-							<TableCell>{user.role}</TableCell>
-							<TableCell>
-								<div className='flex gap-2'>
-									<Dialog>
-										<DialogTrigger asChild>
-											<Button
-												variant='outline'
-												size='sm'
-												onClick={() => setEditingUser(user)}
-											>
-												Edit
-											</Button>
-										</DialogTrigger>
-										<DialogContent>
-											<DialogHeader>
-												<DialogTitle>Edit User</DialogTitle>
-											</DialogHeader>
-											<UserForm
-												mode='edit'
-												user={user}
-												onSubmit={(data) =>
-													updateUserMutation.mutate({
-														id: user.id,
-														...(data as UpdateUserData),
-													})
-												}
-												isSubmitting={updateUserMutation.isPending}
-											/>
-										</DialogContent>
-									</Dialog>
-
-									<Button
-										variant='destructive'
-										size='sm'
-										onClick={() => setUserToDelete(user)}
-										disabled={deleteUserMutation.isPending}
-									>
-										Delete
-									</Button>
-								</div>
-							</TableCell>
-						</TableRow>
-					))}
-				</TableBody>
-			</Table>
-
-			{/* Pagination Controls */}
-			<div className='flex items-center justify-between py-4'>
-				<div className='flex-1 text-sm text-muted-foreground'>
+			{/* Pagination */}
+			<div className="flex flex-col md:flex-row items-center justify-between gap-4 py-2">
+				<div className="text-xs md:text-sm text-muted-foreground order-2 md:order-1">
 					{processedData.length > 0
 						? `Showing ${(page - 1) * itemsPerPage + 1} to ${Math.min(
 								page * itemsPerPage,
@@ -637,51 +596,77 @@ function AdminPage() {
 						  )} of ${processedData.length} users`
 						: 'No users found'}
 				</div>
-				<div className='flex items-center space-x-2'>
+				<div className="flex items-center space-x-2 order-1 md:order-2">
 					<Button
-						variant='outline'
-						size='sm'
+						variant="outline"
+						size="icon"
+						className="h-7 w-7 md:h-8 md:w-8"
 						onClick={() => setPage(1)}
 						disabled={page === 1}
 					>
-						<ChevronsLeft className='h-4 w-4' />
+						<ChevronsLeft className="h-3 w-3 md:h-4 md:w-4" />
 					</Button>
 					<Button
-						variant='outline'
-						size='sm'
+						variant="outline"
+						size="icon"
+						className="h-7 w-7 md:h-8 md:w-8"
 						onClick={() => setPage((prev) => Math.max(1, prev - 1))}
 						disabled={page === 1}
 					>
-						<ChevronLeft className='h-4 w-4' />
+						<ChevronLeft className="h-3 w-3 md:h-4 md:w-4" />
 					</Button>
-					<div className='text-sm font-medium'>
+					<div className="text-xs md:text-sm font-medium">
 						Page {page} of {totalPages || 1}
 					</div>
 					<Button
-						variant='outline'
-						size='sm'
+						variant="outline"
+						size="icon"
+						className="h-7 w-7 md:h-8 md:w-8"
 						onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
 						disabled={page === totalPages || totalPages === 0}
 					>
-						<ChevronRight className='h-4 w-4' />
+						<ChevronRight className="h-3 w-3 md:h-4 md:w-4" />
 					</Button>
 					<Button
-						variant='outline'
-						size='sm'
+						variant="outline"
+						size="icon"
+						className="h-7 w-7 md:h-8 md:w-8"
 						onClick={() => setPage(totalPages)}
 						disabled={page === totalPages || totalPages === 0}
 					>
-						<ChevronsRight className='h-4 w-4' />
+						<ChevronsRight className="h-3 w-3 md:h-4 md:w-4" />
 					</Button>
 				</div>
 			</div>
 
+			{/* Edit Dialog */}
+			<Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+				<DialogContent className="sm:max-w-[425px]">
+					<DialogHeader>
+						<DialogTitle>Edit User</DialogTitle>
+					</DialogHeader>
+					<UserForm
+						mode="edit"
+						user={editingUser || undefined}
+						onSubmit={(data) =>
+							updateUserMutation.mutate({
+								id: editingUser?.id as number,
+								...data as UpdateUserData
+							})
+						}
+						isSubmitting={updateUserMutation.isPending}
+					/>
+				</DialogContent>
+			</Dialog>
+
+			{/* Delete Confirmation */}
 			<DeleteConfirmDialog
 				isOpen={!!userToDelete}
 				onClose={() => setUserToDelete(null)}
 				onConfirm={() => {
 					if (userToDelete) {
 						deleteUserMutation.mutate(userToDelete.id);
+						setUserToDelete(null);
 					}
 				}}
 				username={userToDelete?.username || ''}

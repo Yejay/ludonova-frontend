@@ -19,11 +19,9 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { cn } from "@/lib/utils";
 
-const GAME_INSTANCES_KEY = 'game-instances';
-const LIBRARY_STATS_KEY = 'library-stats';
 const PAGE_SIZE = 15;
-
 type SortOption = 'playTime' | 'lastPlayed';
 
 export function GameLibrary() {
@@ -130,16 +128,17 @@ export function GameLibrary() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col items-center space-y-6">
-        <h1 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col items-center space-y-4 md:space-y-6">
+        <h1 className="text-2xl md:text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600 text-center px-4">
           {user?.steamUser?.personaName || user?.username}&apos;s Library
         </h1>
-        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-4xl">
-          <div className="flex gap-2 overflow-x-auto pb-2 flex-1">
+        <div className="flex flex-col space-y-3 w-full max-w-4xl">
+          <div className="flex gap-1.5 md:gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-none">
             <Button
               variant={selectedStatus === null ? "default" : "outline"}
               onClick={() => setSelectedStatus(null)}
+              className="shrink-0 h-8 md:h-9 text-xs md:text-sm px-2.5 md:px-4"
             >
               All
             </Button>
@@ -148,26 +147,29 @@ export function GameLibrary() {
                 key={status}
                 variant={selectedStatus === status ? "default" : "outline"}
                 onClick={() => setSelectedStatus(status)}
+                className="shrink-0 h-8 md:h-9 text-xs md:text-sm px-2.5 md:px-4"
               >
                 {getStatusDisplayName(status)}
               </Button>
             ))}
           </div>
-          <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Sort by..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="playTime">Play Time</SelectItem>
-              <SelectItem value="lastPlayed">Last Played</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex justify-end px-4 md:px-0">
+            <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+              <SelectTrigger className="w-[140px] md:w-[180px] h-8 md:h-10 text-xs md:text-sm">
+                <SelectValue placeholder="Sort by..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="playTime">Play Time</SelectItem>
+                <SelectItem value="lastPlayed">Last Played</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
       {!filteredGames.length ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">
+        <div className="text-center py-8 md:py-12 px-4">
+          <p className="text-sm md:text-base text-muted-foreground">
             {selectedStatus 
               ? `No games marked as ${getStatusDisplayName(selectedStatus).toLowerCase()}`
               : "Your library is empty. Add some games from the games page!"
@@ -176,7 +178,7 @@ export function GameLibrary() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-6 px-2 md:px-0">
             {filteredGames.map((game) => (
               <GameCard
                 key={game.id}
@@ -199,9 +201,9 @@ export function GameLibrary() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex justify-center mt-8">
+            <div className="flex justify-center mt-4 md:mt-6">
               <Pagination>
-                <PaginationContent>
+                <PaginationContent className="overflow-x-auto flex-nowrap">
                   <PaginationItem>
                     <PaginationPrevious
                       href="#"
@@ -209,7 +211,10 @@ export function GameLibrary() {
                         e.preventDefault();
                         if (page > 1) setPage(page - 1);
                       }}
-                      className={page <= 1 ? 'pointer-events-none opacity-50' : ''}
+                      className={cn(
+                        "h-8 md:h-10",
+                        page <= 1 ? 'pointer-events-none opacity-50' : ''
+                      )}
                     />
                   </PaginationItem>
 
@@ -224,6 +229,7 @@ export function GameLibrary() {
                             e.preventDefault();
                             setPage(Number(pageNum));
                           }}
+                          className="h-8 md:h-10"
                           isActive={page === pageNum}
                         >
                           {pageNum}
@@ -239,7 +245,10 @@ export function GameLibrary() {
                         e.preventDefault();
                         if (page < totalPages) setPage(page + 1);
                       }}
-                      className={page >= totalPages ? 'pointer-events-none opacity-50' : ''}
+                      className={cn(
+                        "h-8 md:h-10",
+                        page >= totalPages ? 'pointer-events-none opacity-50' : ''
+                      )}
                     />
                   </PaginationItem>
                 </PaginationContent>

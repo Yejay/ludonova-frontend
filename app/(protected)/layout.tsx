@@ -35,12 +35,14 @@ export default function ProtectedLayout({
 	}
 
 	return (
-		<div className="min-h-screen bg-background">
+		<div className="min-h-screen bg-background flex flex-col">
 			<DashboardHeader />
-			<div className="flex">
+			<div className="flex-1 flex relative">
 				<DashboardNav />
-				<main className="flex-1 p-8 transition-all duration-300">
-					{children}
+				<main className="flex-1 p-4 md:p-8 pb-20 md:pb-8 overflow-x-hidden">
+					<div className="max-w-[2000px] mx-auto">
+						{children}
+					</div>
 				</main>
 			</div>
 		</div>
